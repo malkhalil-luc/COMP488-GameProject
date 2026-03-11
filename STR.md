@@ -324,8 +324,8 @@ remove_entity(entity) → destroys entity and all its components
 That's the full surface area of ecs.py. Ready to write it?
 ```
 
-# **components**
-**position.py**
+# **components/**
+**components/position.py**
 ```
 # =============================================================================
 # components/position.py
@@ -354,4 +354,169 @@ That's the full surface area of ecs.py. Ready to write it?
     Storing as float avoids rounding errors accumulating over many frames.
     pygame.draw.rect() will cast to int when it actually draws.
 
+```
+
+**components/velocity.py**
+```
+which things actually move in our game?
+
+Player — yes, but only when a key is held. When no key is pressed, vx = 0
+Enemies — yes, they descend constantly, so vy = ENEMY_SPEED always
+Bullets — yes, always moving upward, so vy = -BULLET_SPEED
+Enemy Leader — yes, moves side to side and downward
+
+# =============================================================================
+# components/velocity.py
+#
+# Answers: HOW FAST and in WHAT DIRECTION is this entity moving?
+#
+# Units: pixels per frame  (game runs at locked 60 FPS)
+#
+# Every frame, MovementSystem applies:
+#   pos.x += vel.vx
+#   pos.y += vel.vy
+#
+# Positive vx  → moves RIGHT
+# Negative vx  → moves LEFT
+# Positive vy  → moves DOWN   (pygame y-axis increases downward)
+# Negative vy  → moves UP
+#
+# WHO READS IT:   MovementSystem (every frame)
+# WHO WRITES IT:  InputSystem (player vx each frame based on keys held)
+#                 Factories  (set initial velocity at spawn time)
+#
+# WHICH ENTITIES GET THIS:
+#   player   — vx set each frame by InputSystem, vy always 0
+#   enemies  — vy = ENEMY_SPEED (downward, set by EnemyAISystem)
+#   bullets  — vy = -BULLET_SPEED (upward, set at spawn, never changes)
+#   leader   — vx oscillates side to side (set by EnemyAISystem)
+# =============================================================================
+
+field(default=0.0) — this is how you give a dataclass field a default value. Now vx and vy are optional at construction time. Without this, every caller would have to pass both values even when they're zero.
+The y-axis direction — this trips everyone up once. In pygame, y=0 is the top of the screen and y=600 is the bottom. So moving up means subtracting from y, which is why bullets have vy = -BULLET_SPEED.
+```
+
+**components/sprite.py**
+```
+# =============================================================================
+# components/sprite.py
+#
+# Answers: WHAT DOES this entity look like?
+#
+# Stores the visual data needed to draw an entity as a rectangle.
+# Always used together with PositionComponent — never alone.
+#
+# WHY NOT STORE POSITION HERE?
+# ─────────────────────────────
+# Position is its own concern — it's also used by CollisionSystem and
+# MovementSystem, which have nothing to do with rendering.
+# Keeping them separate means each component has exactly one job.
+#
+# WHY NOT STORE THE SCREEN SURFACE HERE?
+# ───────────────────────────────────────
+# The pygame screen surface is not data that belongs to an entity.
+# It belongs to the game loop. It gets passed to RenderSystem each frame
+# via kwargs. Storing it here would couple every entity to the renderer.
+#
+# WHO READS IT:   RenderSystem (every frame)
+# WHO WRITES IT:  Factories (set once at spawn time)
+#
+# WHICH ENTITIES GET THIS:
+#   player, enemies, leader, bullets — anything that is drawn on screen
+# =============================================================================
+
+```
+
+**components/health.py**
+```
+# =============================================================================
+# components/health.py
+#
+# Answers: HOW MUCH health does this entity have?
+#
+# Used by entities that can take multiple hits before dying:
+#   player  — hp=3, max_hp=3  (lives)
+#   leader  — hp=4, max_hp=4  (boss HP)
+#
+# NOT used by:
+#   regular enemies — die in one hit, no tracking needed
+#   bullets         — deal damage, don't receive it
+#
+# WHY STORE max_hp?
+# ─────────────────
+# max_hp is needed by the HUD to calculate the boss HP bar width:
+#   fill_ratio = hp / max_hp
+#   bar_width  = fill_ratio * BAR_MAX_WIDTH
+#
+# Without max_hp we'd have no reference point for "full health."
+#
+# WHO READS IT:   DamageSystem (checks if hp <= 0 → trigger death)
+#                 RenderSystem / HUD (boss HP bar fill ratio)
+# WHO WRITES IT:  DamageSystem (decrements hp on hit)
+#                 Factories    (sets initial hp and max_hp at spawn)
+# =============================================================================
+    """
+    Current and maximum health of an entity.
+
+    hp      : int — current health, decremented by DamageSystem on hit
+    max_hp  : int — starting health, used as reference for HP bar ratio
+
+    Both are required — you must always know the maximum to make hp meaningful.
+
+    Example usage in factories:
+        world.add_component(player_id, HealthComponent(hp=3, max_hp=3))
+        world.add_component(leader_id, HealthComponent(hp=4, max_hp=4))
+
+```
+
+**components/collider.py**
+```
+# =============================================================================
+# components/collider.py
+#
+# Answers: WHAT IS THE COLLISION AREA of this entity?
+#
+# Intentionally separate from SpriteComponent because:
+#   - Visual size and collision size are different concerns
+#   - Collision box can be smaller than sprite for fairer hit detection
+#   - An entity can be visible but non-collidable (decorations)
+#   - An entity can be collidable but invisible (trigger zones)
+#
+# In our game the collider is axis-aligned (AABB — Axis Aligned Bounding Box).
+# That means it's always a rectangle, never rotated.
+# AABB collision is the simplest and fastest form of collision detection.
+#
+# HOW AABB COLLISION WORKS
+# ─────────────────────────
+# Two rectangles A and B are colliding if ALL four of these are true:
+#   A.left   < B.right
+#   A.right  > B.left
+#   A.top    < B.bottom
+#   A.bottom > B.top
+#
+# CollisionSystem builds these rectangles using:
+#   left   = pos.x
+#   top    = pos.y
+#   right  = pos.x + collider.width
+#   bottom = pos.y + collider.height
+#
+# WHO READS IT:   CollisionSystem (every frame, checks all collidable pairs)
+# WHO WRITES IT:  Factories (set once at spawn time)
+#
+# WHICH ENTITIES GET THIS:
+#   player   — must detect enemy body contact
+#   enemies  — must detect bullet hits and player contact
+#   leader   — must detect bullet hits
+#   bullets  — must detect when they hit an enemy or leader
+#
+# WHICH ENTITIES DO NOT GET THIS:
+#   HUD elements, background decorations (none in our game currently)
+# =============================================================================
+The sprite dimensions define how big something looks. Should the area where a collision registers always be exactly the same size as what you see drawn on screen?
+Consider a bullet hitting an enemy — if the collision box is the full size of the enemy sprite, it feels unfair. If it's slightly smaller, hits feel precise and satisfying. That's a design choice.
+So the real reason for a separate ColliderComponent is:
+The visual size and the collision size are two different concerns.
+A sprite can be 36×24 pixels visually, but its collider might be 28×18 — slightly smaller so only a clean direct hit registers. Or the opposite — a boss might have a larger collision area than its sprite.
+Keeping them separate also means you could have an entity that is invisible (visible=False on sprite) but still physically present and collidable. Or an entity that is visible but has no collider at all — like a background decoration.
+That's the separation of concerns payoff: each component answers exactly one question, independently.
 ```

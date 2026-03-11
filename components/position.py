@@ -10,7 +10,6 @@ class PositionComponent (Component):
     Type float: 
             - for movement is is multiplied by dt which is float. so the result is float
             - for pygame.draw.rect() will cast it to int when it draws
-
     """
 
     x: float
