@@ -133,3 +133,225 @@ ecs_game/
     ├
     └── collision_utils.py #if any
 2. What Each Folde
+
+
+
+# **ECS_core**
+**entity.py**
+```
+# =============================================================================
+# ecs/entity.py
+#
+# In ECS an entity is nothing but a unique integer ID.
+# It holds no data and has no behavior of its own.
+# Data lives in Components. Behavior lives in Systems.
+# The entity ID is just the key that links them together.
+#
+# Example of what the World's storage looks like at runtime:
+#
+#   {
+#     0: { PositionComponent: PositionComponent(x=375, y=522),
+#          SpriteComponent:   SpriteComponent(w=50, h=30, color=...),
+#          TagComponent:      TagComponent(tag="player") },
+#
+#     1: { PositionComponent: PositionComponent(x=100, y=80),
+#          SpriteComponent:   SpriteComponent(w=36, h=24, color=...),
+#          TagComponent:      TagComponent(tag="enemy") },
+#   }
+#
+# Entity 0 and Entity 1 are just the integer keys in that dict.
+# Nothing more.
+
+# Type alias — tells anyone reading the code "this int is an entity ID"
+# Use it in type hints:  def create_player(world) -> Entity:
+# =============================================================================
+
+```
+
+**Component.py**
+```
+# =============================================================================
+# ecs/component.py
+#
+# Base class for every component in the game.
+#
+# WHY THIS EXISTS
+# ───────────────
+# All components are different — Position holds x/y, Sprite holds color/size,
+# Health holds hp/max_hp. But the registry (ecs.py) needs to handle ALL of
+# them generically, without knowing which specific component it has.
+#
+# Inheriting from Component gives the registry a single type to work with:
+#
+#   def add_component(self, entity: Entity, component: Component): ...
+#
+# WHY ABC (Abstract Base Class)?
+# ──────────────────────────────
+# Marking the base as abstract prevents anyone from doing:
+#
+#   c = Component()   ← TypeError: can't instantiate abstract class
+#
+# You can only instantiate concrete children:
+#
+#   pos = PositionComponent(x=0, y=0)   ← fine
+#
+# This is the Open/Closed principle:
+#   - Closed: you never modify Component itself
+#   - Open:   you extend it by creating new component files
+# =============================================================================
+
+```
+
+**System.py**
+```
+# =============================================================================
+# ecs/system.py
+#
+# Base class for every system in the game.
+#
+# WHY THIS EXISTS
+# ───────────────
+# Every system has exactly one job: implement update().
+# The base class makes that a hard requirement — not a convention.
+#
+# If you create a new system and forget update(), Python raises a
+# TypeError the moment the game starts, not silently mid-game.
+#
+# WHY @abstractmethod?
+# ────────────────────
+# @abstractmethod tells Python:
+#   "any class that inherits from System MUST implement this method"
+#
+# Trying to instantiate a system without update() → immediate TypeError.
+# This catches the mistake at startup, not buried in a runtime bug.
+#
+# WHY **kwargs in update()?
+# ─────────────────────────
+# Different systems need different extra data each frame:
+#   RenderSystem  needs: screen surface
+#   MovementSystem needs: delta time
+#   InputSystem   needs: nothing extra
+#
+# Rather than forcing every system to accept every possible argument,
+# **kwargs lets each system take only what it needs:
+#
+#   class RenderSystem(System):
+#       def update(self, world, **kwargs):
+#           screen = kwargs["screen"]   ← takes only what it needs
+#
+# The caller (game loop) passes everything. Each system unpacks its own.
+# =============================================================================
+
+```
+**ecs.py**
+```
+=============================================================================
+# ecs/ecs.py  —  the ECS registry
+#
+# This is the single object that holds the entire game world.
+# It knows every entity, every component attached to each entity,
+# and every system that runs each frame.
+#
+# NOTHING in the game creates entities or reads components directly.
+# Everything goes through this registry.
+#
+# WHO USES THIS AND HOW
+# ─────────────────────
+# Factories call:
+#   world.create_entity()              → get a new ID
+#   world.add_component(id, component) → attach data to that ID
+#
+# Systems call:
+#   world.get_entities_with(A, B)      → find all entities that have A and B
+#   world.get_component(id, Type)      → read one component from one entity
+#
+# game.py calls:
+#   world.add_system(system)           → register a system
+#   world.update(**kwargs)             → run all systems once per frame
+#   world.remove_entity(id)            → destroy an entity mid-game
+#
+# STORAGE STRUCTURE
+# ─────────────────
+# _entities: dict[Entity, dict[type, Component]]
+#
+#   {
+#     0: { PositionComponent: PositionComponent(x=375, y=522),
+#          SpriteComponent:   SpriteComponent(w=50, h=30, color=...) },
+#
+#     1: { PositionComponent: PositionComponent(x=100, y=80),
+#          SpriteComponent:   SpriteComponent(w=36, h=24, color=...) },
+#   }
+#
+# The component TYPE is the key — not a string.
+# This means lookups are fast and there are no string typos.
+# =============================================================================
+
+```
+
+**what does a factory need from ecs.py? What does a system need from it?**
+```
+A system needs to ask the registry: "give me all entities that have these components" and then read/write those components. So the registry needs a query method.
+
+Factories don't touch systems at all.
+A factory's only job is:
+
+Ask the registry for a new entity ID
+Attach components to it
+Return the ID
+
+That's it. The factory never knows a system exists.
+Systems are registered separately — by game.py, not by any factory. The factory builds what an entity is (its data). The game decides what logic runs on it (its systems).
+So the methods ecs.py actually needs are:
+For factories:
+
+create_entity() → gives back a new ID
+add_component(entity, component) → attaches data to that ID
+
+For systems:
+
+get_components(entity, component_type) → reads one component
+get_entities_with(...) → query: "all entities that have these component types"
+
+For game.py:
+
+add_system(system) → registers a system
+update(**kwargs) → calls every system's update() in order
+
+For cleanup:
+
+remove_entity(entity) → destroys entity and all its components
+
+That's the full surface area of ecs.py. Ready to write it?
+```
+
+# **components**
+**position.py**
+```
+# =============================================================================
+# components/position.py
+
+#
+# Answers: WHERE is this entity in the world?
+#
+# (x, y) is the TOP-LEFT corner of the entity's bounding box.
+# All rendering and collision math uses this as the reference point.
+#
+# This component is attached to: player, enemies, leader, bullets.
+# Any entity that exists somewhere in space gets a PositionComponent.
+#
+# WHO READS IT:   RenderSystem, CollisionSystem, MovementSystem, EnemyAISystem
+# WHO WRITES IT:  MovementSystem (every frame, applies velocity to position)
+# =============================================================================
+    World-space position of an entity.
+
+    x : float  — horizontal position in pixels, left edge of the entity
+    y : float  — vertical   position in pixels, top  edge of the entity
+
+    Why float and not int?
+    ──────────────────────
+    MovementSystem will do:  pos.x += vel.vx * dt
+    delta time (dt) is a float, so the result is a float.
+    Storing as float avoids rounding errors accumulating over many frames.
+    pygame.draw.rect() will cast to int when it actually draws.
+
+```
