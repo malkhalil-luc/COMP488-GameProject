@@ -77,3 +77,59 @@ ecs_game/
 
     1. constants
     2. Entity registry / Id storeage
+
+
+
+
+
+    │
+├── main.py
+├── config.py
+│
+├── ecs/
+│   ├── ecs.py
+│   ├── entity.py
+│   ├── component.py
+│   └── system.py
+│
+├── components/
+│   ├── position.py
+│   ├── velocity.py
+│   ├── health.py
+│   ├── collider.py # we might have non for now
+│   ├── weapon.py # we might have non for now
+│   ├── sprite.py
+│   ├── powerup.py #i know we have non for now
+│   └── lifetime.py
+│
+├── systems/
+│   ├── input_system.py
+│   ├── movement_system.py
+│   ├── enemy_ai_system.py # not sure what is enemy ai or if any we have now
+│   ├── shooting_system.py
+│   ├── collision_system.py 
+│   ├── damage_system.py 
+│   ├── powerup_system.py
+│   ├
+│   └── render_system.py
+│
+├── factories/
+│   ├── player_factory.py
+│   ├── enemy_factory.py
+│   ├── bullet_factory.py
+│   └── powerup_factory.py #if any i see nothing for now
+│
+├── game/
+│   ├── game.py
+│   ├── world.py
+│   └── 
+│
+├── assets/
+│   ├── sprites/ #if any
+│   ├── sounds/ #if any
+│   └── fonts/ #if any
+│
+└── utils/#if any
+    ├
+    └── collision_utils.py #if any
+2. What Each Folde
