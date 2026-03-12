@@ -7,8 +7,8 @@ from config import (
     ENEMY_GAP_X, ENEMY_GAP_Y,
     COLOR_ENEMY,
 )
-from ecs_core.entity import Entity
-from ecs_core.ecs import World
+from ECS_core.entity import Entity
+from ECS_core.ecs import World
 from components.position import PositionComponent
 from components.velocity import VelocityComponent
 from components.tag import TagComponent

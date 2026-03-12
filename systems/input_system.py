@@ -1,6 +1,6 @@
 import pygame
 from config import PLAYER_SPEED
-from ecs_core.system import System
+from ECS_core.system import System
 from components.velocity import VelocityComponent
 from components.input import InputComponent
 

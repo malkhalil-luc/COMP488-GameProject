@@ -1,8 +1,8 @@
 
 
-from ecs_core.entity import Entity
-from ecs_core.component import Component
-from ecs_core.system import System
+from ECS_core.entity import Entity
+from ECS_core.component import Component
+from ECS_core.system import System
 class World:
     """
     The ECS registry, stores all entities, all components all systems.

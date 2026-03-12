@@ -1,6 +1,6 @@
 from config import SCREEN_WIDTH, FIELD_TOP, LEADER_WIDTH, LEADER_HEIGHT, LEADER_HP, COLOR_LEADER
-from ecs_core.entity import Entity
-from ecs_core.ecs import World
+from ECS_core.entity import Entity
+from ECS_core.ecs import World
 from components.position import PositionComponent
 from components.velocity import VelocityComponent
 from components.tag import TagComponent

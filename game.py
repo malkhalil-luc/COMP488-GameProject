@@ -8,7 +8,7 @@ from config import (
     STARTING_LIVES, SCORE_ENEMY, SCORE_LEADER,
     LEADER_WIDTH, LEADER_HEIGHT,
 )
-from ecs_core.ecs import World
+from ECS_core.ecs import World
 from systems.input_system import InputSystem
 from systems.fire_system import FireSystem
 from systems.enemy_ai_system import EnemyAISystem

@@ -1,6 +1,6 @@
 #how much HP does it have
 from dataclasses import dataclass
-from ecs_core.component import Component
+from ECS_core.component import Component
 
 
 @dataclass

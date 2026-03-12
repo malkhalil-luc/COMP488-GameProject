@@ -2,7 +2,7 @@
 
 from dataclasses import dataclass, field
 from typing import Tuple
-from ecs_core.component import Component
+from ECS_core.component import Component
 
 
 @dataclass

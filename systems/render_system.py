@@ -1,7 +1,7 @@
 # called the last
 
 import pygame
-from ecs_core.system import System
+from ECS_core.system import System
 from components.sprite import SpriteComponent
 from components.position import PositionComponent
 

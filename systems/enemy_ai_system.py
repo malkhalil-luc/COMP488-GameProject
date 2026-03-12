@@ -1,5 +1,5 @@
 from config import ENEMY_SPEED, LEADER_SPEED
-from ecs_core.system import System
+from ECS_core.system import System
 from components.velocity import VelocityComponent
 from components.tag import TagComponent
 

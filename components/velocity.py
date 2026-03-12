@@ -1,7 +1,7 @@
 #how fast, which direction (rate of change; how much/amount to move each frame)
 
 from dataclasses import dataclass, field
-from ecs_core.component import Component
+from ECS_core.component import Component
 
 
 @dataclass

@@ -1,6 +1,6 @@
 import pygame
 from config import PLAYER_WIDTH, BULLET_W
-from ecs_core.system import System
+from ECS_core.system import System
 from components.position import PositionComponent
 from components.input import InputComponent
 from entities.bullet import create_bullet

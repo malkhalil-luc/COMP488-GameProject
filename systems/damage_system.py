@@ -1,5 +1,5 @@
 from config import SCORE_ENEMY, SCORE_LEADER
-from ecs_core.system import System
+from ECS_core.system import System
 from components.health import HealthComponent
 
 

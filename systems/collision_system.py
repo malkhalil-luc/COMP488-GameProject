@@ -1,4 +1,4 @@
-from ecs_core.system import System
+from ECS_core.system import System
 from components.position import PositionComponent
 from components.collider import ColliderComponent
 from components.tag import TagComponent

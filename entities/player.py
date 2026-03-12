@@ -1,8 +1,8 @@
 # factory: build the player entity
 
 from config import SCREEN_WIDTH, FIELD_BOTTOM, PLAYER_WIDTH, PLAYER_HEIGHT, PLAYER_SPEED, COLOR_PLAYER, STARTING_LIVES
-from ecs_core.entity import Entity
-from ecs_core.ecs import World
+from ECS_core.entity import Entity
+from ECS_core.ecs import World
 from components.position import PositionComponent
 from components.velocity import VelocityComponent
 from components.input import InputComponent

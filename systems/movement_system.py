@@ -1,5 +1,5 @@
 from config import FIELD_TOP, FIELD_BOTTOM, SCREEN_WIDTH, PLAYER_HEIGHT, PLAYER_WIDTH, BULLET_H
-from ecs_core.system import System
+from ECS_core.system import System
 from components.velocity import VelocityComponent
 from components.position import PositionComponent
 from components.input import InputComponent

@@ -1,6 +1,6 @@
 # when it must be auto destroyed
 from dataclasses import dataclass, field
-from ecs_core.component import Component
+from ECS_core.component import Component
 
 @dataclass
 class LifetimeComponent(Component):
