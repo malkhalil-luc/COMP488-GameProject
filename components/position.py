@@ -1,3 +1,6 @@
+
+# Where is the entity
+
 from dataclasses import dataclass
 from ecs_core.component import Component
 

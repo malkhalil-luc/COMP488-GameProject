@@ -50,6 +50,13 @@ MANIFEST
 
 STR.md
 off-doc.md
+<<<<<<< HEAD
 entities.md
 systems.md
 topics.md
+=======
+topics.md
+
+systems.md
+entities.md
+>>>>>>> feat/render

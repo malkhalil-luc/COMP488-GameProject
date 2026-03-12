@@ -4,9 +4,9 @@
 SCREEN_WIDTH = 800
 SCREEN_HEIGHT = 600
 FPS = 60
-Title = "Invasion Spacers"
+TITLE = "Invasion Spacers"
 
-# play area bounds:
+# play area bounds,
 # play area starts after the HUD, S
 
 HUD_H = 48
@@ -16,9 +16,9 @@ FIELD_TOP = HUD_H # 48 of 600
 FIELD_BOTTOM = SCREEN_HEIGHT - BOSS_BAR_H 
 
 #COLORS
-COLOR_BG = (10, 10, 10)
-COLOR_PLAYER = (0.200,225)
-COLOR_ENEMY = (220, 60,  60)   # red invaders
+COLOR_BG         = (10, 10, 10)
+COLOR_PLAYER     = (0, 200,225)
+COLOR_ENEMY      = (220, 60,  60)   # red invaders
 COLOR_LEADER     = (255, 160,  0)   # orange boss
 COLOR_BULLET     = (255, 255, 100)  # yellow projectile
 COLOR_WHITE      = (255, 255, 255)  # HUD text
@@ -28,25 +28,26 @@ COLOR_BOSS_EMPTY = (60,   20,  20)  # empty portion of boss HP bar
 COLOR_BOSS_FILL  = (220,  40,  40)  # filled portion of boss HP bar
 
 # PLayer
-PLAYER_W      = 50     # width  in pixels
-PLAYER_H      = 30     # height in pixels
+PLAYER_WIDTH  = 50     # width  in pixels
+PLAYER_HEIGHT = 30     # height in pixels
 PLAYER_SPEED  = 5      # pixels moved per frame when a key is held
 
 #Enemies
-ENEMY_W       = 36
-ENEMY_H       = 24
+ENEMY_WIDTH   = 36
+ENEMY_HEIGHT  = 24
 ENEMY_ROWS    = 3
 ENEMY_COLS    = 8
 ENEMY_GAP_X   = 14     # horizontal gap between enemies
 ENEMY_GAP_Y   = 14     # vertical gap between rows
-ENEMY_SPEED   = 1      # pixels moved downward per frame
+ENEMY_SPEED   = 0.31      # pixels moved downward per frame
 
 # enemy leader
-LEADER_W      = 60
-LEADER_H      = 40
-LEADER_SPEED  = 2      # faster than regular enemies
+LEADER_WIDTH      = 60
+LEADER_HEIGHT      = 40
+LEADER_SPEED  = 0.9      # faster than regular enemies
 LEADER_HP     = 4      # takes 4 hits to destroy
-
+LEADER_SPEED_X = 4
+LEADER_SPEED_Y = 2
 
 #projectiles
 
