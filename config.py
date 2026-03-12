@@ -56,7 +56,6 @@ BULLET_H      = 14
 BULLET_SPEED  = 8      # pixels moved upward per frame  (applied as -8 on y)
 
 # HUD  (text sizes in points)
-# All text must be ≥ 18 px per accessibility requirement in the spec
 FONT_SIZE       = 20
 FONT_TITLE_SIZE = 38
 FONT_SUB_SIZE   = 22
@@ -64,7 +63,6 @@ FONT_SUB_SIZE   = 22
 
 # 
 # Game rules
-# Changing these numbers re-balances the game without touching any logic
 STARTING_LIVES  = 3
 MAX_WAVES       = 3    # how many enemy waves before the boss spawns
 SCORE_ENEMY     = 1    # points per regular enemy killed
