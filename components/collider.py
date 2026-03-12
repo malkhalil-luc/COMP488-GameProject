@@ -4,7 +4,7 @@ from ecs_core.component import Component
 
 
 @ dataclass
-class ColliderSprite (Component):
+class ColliderComponent (Component):
     """
     """
     width: int

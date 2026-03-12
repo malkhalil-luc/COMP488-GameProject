@@ -1,4 +1,4 @@
-#how fast, which direction
+#how fast, which direction (rate of change; how much/amount to move each frame)
 
 from dataclasses import dataclass, field
 from ecs_core.component import Component
@@ -8,7 +8,7 @@ from ecs_core.component import Component
 class VelocityComponent(Component):
     """
     movement rate as how many pixels and entity moves per frame.
-    vx: horizental speed
+    vx: horizontal speed
     vy: vertical speed
     Both default to 0.0, 
     usage: 

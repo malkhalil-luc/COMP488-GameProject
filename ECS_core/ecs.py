@@ -12,8 +12,9 @@
 
 # components, systems, factories will use this
 
-from ecs_core.entity import Entity, Component, System
-
+from ecs_core.entity import Entity
+from ecs_core.component import Component
+from ecs_core.system import System
 class World:
     """
     The ECS registry, stores all entities, all components all systems.
@@ -92,7 +93,7 @@ class World:
 
         return component_type in self._entities.get(entity, {})
 
-    def get_entiteis_with (self, *component_type: type)-> list[Entity]: # * accept any number of types can be passed
+    def get_entities_with (self, *component_type: type)-> list[Entity]: # * accept any number of types can be passed
         """
         Returns a list of all entities ids that have all the listed components
         the system use: ask the world to give everything that has these types of components to act on it
@@ -122,7 +123,7 @@ class World:
         self._systems.append(system)
 
 
-    def update (self, **kwargs) -> None:
+    def update (self, kwargs) -> None:
         """
         Run every registered system one time, 
         called once every frame from the game loop. 
@@ -135,4 +136,8 @@ class World:
         """
 
         for system in self._systems:
-            system.update(self, **kwargs)
+            system.update(self, kwargs)
+
+    def clear(self) -> None:
+        self._entities.clear()
+        self._next_id = 0
