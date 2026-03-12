@@ -1,3 +1,5 @@
+#how fast, which direction
+
 from dataclasses import dataclass, field
 from ecs_core.component import Component
 
