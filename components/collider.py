@@ -1,4 +1,4 @@
-#what is the collistion area
+#what is the collision area
 from dataclasses import dataclass
 from ecs_core.component import Component
 

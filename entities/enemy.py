@@ -28,10 +28,8 @@ def create_enemy_formation(world: World) -> list[Entity]:
     # Center the formation horizontally on screen
     start_x = (SCREEN_WIDTH - formation_w) // 2
 
-    # Start just below the HUD strip with a small margin
+    # Start just below the HUD 
     start_y = FIELD_TOP + 20
-
-    #  Spawn each enemy in the grid 
 
     enemy_ids = []
 
@@ -50,21 +48,20 @@ def create_enemy_formation(world: World) -> list[Entity]:
                 y=float(y),
             ))
 
-            # Velocity starts at 0 — EnemyAISystem sets vy every frame
+            
             world.add_component(eid, VelocityComponent(vx=0.0, vy=0.0))
 
-            # What kind of entity this is
+            # What kind 
             world.add_component(eid, TagComponent(label="enemy"))
 
-            # What it looks like — red rectangle
+            # What it looks like 
             world.add_component(eid, SpriteComponent(
                 width=ENEMY_WIDTH,
                 height=ENEMY_HEIGHT,
                 color=COLOR_ENEMY,
             ))
 
-            # Collision area — slightly smaller than sprite
-            # so only a clean direct hit registers
+            # Collision area 
             world.add_component(eid, ColliderComponent(
                 width=ENEMY_WIDTH - 6,
                 height=ENEMY_HEIGHT - 4,

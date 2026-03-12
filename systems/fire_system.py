@@ -34,21 +34,15 @@ class FireSystem(System):
         if not fire_pressed:
             return
 
-        #  Find the player entity 
-        # Discovered via InputComponent marker — no hardcoded entity ID
+        #  Find the player entity  it has InputComponent marker 
         player_entities = world.get_entities_with(InputComponent, PositionComponent)
 
         for eid in player_entities:
             pos = world.get_component(eid, PositionComponent)
 
             #  Compute bullet spawn position 
-            # Center the bullet horizontally on the player ship
-            # Place it at the top edge (nose) of the ship
             bullet_x = pos.x + PLAYER_WIDTH // 2 - BULLET_W // 2
             bullet_y = pos.y
 
             #  Spawn the bullet 
-            # Factory creates the entity and attaches all components
-            # FireSystem does not build the bullet itself — that is
-            # the factory's job (single responsibility)
             create_bullet(world, bullet_x, bullet_y)

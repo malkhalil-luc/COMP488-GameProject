@@ -6,7 +6,7 @@ SCREEN_HEIGHT = 600
 FPS = 60
 TITLE = "Invasion Spacers"
 
-# play area bounds:
+# play area bounds,
 # play area starts after the HUD, S
 
 HUD_H = 48

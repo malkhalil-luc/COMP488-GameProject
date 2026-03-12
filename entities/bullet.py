@@ -23,7 +23,7 @@ def create_bullet(world: World, x: float, y: float) -> Entity:
     """
     eid = world.create_entity()
 
-    # Where it spawns — passed in from ShootingSystem
+    # Where it spawns 
     world.add_component(eid, PositionComponent(x=x, y=y))
 
     # Moves straight up at constant speed
@@ -44,14 +44,12 @@ def create_bullet(world: World, x: float, y: float) -> Entity:
     ))
 
     # Collision area — matches sprite exactly for bullets
-    # Bullets are already small so no need to shrink the hitbox
     world.add_component(eid, ColliderComponent(
         width=BULLET_W,
         height=BULLET_H,
     ))
 
-    # Auto-destroy when bullet leaves the top of the screen
-    # MovementSystem checks this flag and calls world.remove_entity()
+    # Auto-destroy, MovementSystem checks this flag and calls world.remove_entity()
     world.add_component(eid, LifetimeComponent(destroy_when_offscreen=True))
 
     return eid

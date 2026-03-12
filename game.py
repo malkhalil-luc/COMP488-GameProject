@@ -19,6 +19,8 @@ from systems.render_system import RenderSystem
 from entities.player import create_player
 from entities.enemy import create_enemy_formation
 from entities.leader import create_leader
+from components.sprite import SpriteComponent
+from components.input import InputComponent
 
 
 class Game:
@@ -95,8 +97,7 @@ class Game:
         self.leader_hit_cooldown = 0
         self.player_flash_timer = 0
 
-        # Wipe all existing entities from the world
-        # This is the clean restart path — no stale bullets or enemies
+        # clear existing entities from the world
         self.world.clear()
 
         # Spawn initial entities via factories
@@ -119,9 +120,8 @@ class Game:
                 if event.type == pygame.QUIT:
                     running = False
 
-                #  State machine input 
-                # These are game state transitions — handled here in game.py,
-                # NOT in InputSystem (which only handles entity velocity).
+                #  State machine input (game state transitions)
+                # InputSystem only handles entity velocity
 
                 if event.type == pygame.KEYDOWN:
 
@@ -147,10 +147,9 @@ class Game:
             #  Clear screen 
             self.screen.fill(COLOR_BG)
 
-            # ── Build kwargs for this frame 
+            # Build kwargs for this dict frame 
             # Systems read from and write back to this dict.
-            # game.py reads signals after world.update() returns.
-            frame_kwargs = {
+            fDict_kwargs = {
                 "screen":       self.screen,
                 "events":       events,
                 "game_state":   self.state,
@@ -161,28 +160,25 @@ class Game:
             }
 
             #  Update world (runs all systems in order) 
-            self.world.update(frame_kwargs)
-            self.leader_hit_cooldown = frame_kwargs.get("leader_hit_cooldown", 0)
+            self.world.update(fDict_kwargs)
+            self.leader_hit_cooldown = fDict_kwargs.get("leader_hit_cooldown", 0)
             if self.leader_hit_cooldown > 0:
                 self.leader_hit_cooldown -= 1
 
             ### flash the player sprite when hit
-            if frame_kwargs.get("lives", self.lives) < self.lives:
+            if fDict_kwargs.get("lives", self.lives) < self.lives:
                 self.player_flash_timer = 60  # 1 seconds of flashing
 
             if self.player_flash_timer > 0:
                 self.player_flash_timer -= 1
                 # toggle visible every 6 frames — creates a flash effect
-                from components.sprite import SpriteComponent
-                from components.input import InputComponent
+
                 player_entities = self.world.get_entities_with(InputComponent, SpriteComponent)
                 for eid in player_entities:
                     sprite = self.world.get_component(eid, SpriteComponent)
                     sprite.visible = (self.player_flash_timer % 6) < 3
             else:
                 # make sure player is always visible when not flashing
-                from components.sprite import SpriteComponent
-                from components.input import InputComponent
                 player_entities = self.world.get_entities_with(InputComponent, SpriteComponent)
                 for eid in player_entities:
                     sprite = self.world.get_component(eid, SpriteComponent)
@@ -190,23 +186,22 @@ class Game:
 
                 ###
 
-            #  Read signals written by systems 
-
+            #  Read signals written by systems
             # Score and lives may have been updated by DamageSystem
-            self.score = frame_kwargs.get("score", self.score)
-            self.lives = frame_kwargs.get("lives", self.lives)
+            self.score = fDict_kwargs.get("score", self.score)
+            self.lives = fDict_kwargs.get("lives", self.lives)
 
             # Wave cleared → spawn the leader
-            if frame_kwargs.get("wave_cleared") and not self.leader_alive:
+            if fDict_kwargs.get("wave_cleared") and not self.leader_alive:
                 create_leader(self.world)
                 self.leader_alive = True
 
             # State transitions triggered by DamageSystem
-            if frame_kwargs.get("trigger_victory"):
+            if fDict_kwargs.get("trigger_victory"):
                 self.state = "victory"
                 self.leader_alive = False
 
-            if frame_kwargs.get("trigger_gameover"):
+            if fDict_kwargs.get("trigger_gameover"):
                 self.state = "gameover"
 
             #  Draw HUD on top of entities 

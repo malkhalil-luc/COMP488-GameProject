@@ -18,26 +18,24 @@ def create_leader(world: World) -> Entity:
     """
     eid = world.create_entity()
 
-    #  Spawn position 
+    
     # Centered horizontally, near the top of the playfield
     start_x = SCREEN_WIDTH // 2 - LEADER_WIDTH // 2
     start_y = FIELD_TOP + 20
 
-    # Where it is
+    # Where 
     world.add_component(eid, PositionComponent(
         x=float(start_x),
         y=float(start_y),
     ))
 
-    # Velocity starts at 0 — EnemyAISystem sets vy each frame
-    # using LEADER_SPEED (faster than regular enemies)
+    # Velocity starts at 0 — EnemyAISystem sets vy each frame using LEADER_SPEED
     world.add_component(eid, VelocityComponent(vx=0.0, vy=0.0))
 
-    # What kind of entity this is — "leader" triggers boss behavior
+    # What kind 
     world.add_component(eid, TagComponent(label="leader"))
 
-    # What it looks like — larger orange rectangle
-    # Visually distinct from regular enemies (bigger, different color)
+    # What it looks like 
     world.add_component(eid, SpriteComponent(
         width=LEADER_WIDTH,
         height=LEADER_HEIGHT,
@@ -45,14 +43,14 @@ def create_leader(world: World) -> Entity:
     ))
 
     # THE KEY DIFFERENCE FROM REGULAR ENEMIES
-    # Takes LEADER_HP hits before dying — DamageSystem reads and
+    # Takes LEADER_HP hits before dying, DamageSystem reads and
     # decrements this. HUD reads hp/max_hp to draw the boss HP bar.
     world.add_component(eid, HealthComponent(
         hp=LEADER_HP,
         max_hp=LEADER_HP,
     ))
 
-    # Collision area — slightly smaller than sprite for fairness
+    # Collision area
     world.add_component(eid, ColliderComponent(
         width=LEADER_WIDTH - 8,
         height=LEADER_HEIGHT - 6,

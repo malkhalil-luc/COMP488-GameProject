@@ -16,7 +16,7 @@ class DamageSystem(System):
         score = kwargs.get("score", 0)
         lives = kwargs.get("lives", 3)
 
-        # Track entities destroyed this frame to prevent double-processing
+        # Track entities destroyed this frame to prevent double processing
         destroyed = set()
 
         # Leader hit cooldown — counts down in frames
@@ -95,7 +95,7 @@ class DamageSystem(System):
                     lives = 0
                     kwargs["trigger_gameover"] = True
 
-        # Write everything back so game.py can read it
+        # Write everything back so game.py read it
         kwargs["score"]               = score
         kwargs["lives"]               = lives
         kwargs["leader_hit_cooldown"] = leader_hit_cooldown

@@ -1,16 +1,4 @@
-# Registry
-# give new entity ids, store components and let system query,
-#e.g. system ask: give me everything with Position + Velocity
-# THE WHOLE WORLD GAME IS HELD HERE IN THIS SINGLE OBJECT.
-# NO OTHER THING IN THE GAME CREATE ENTITIES IR READ COMPONENTS DIRECTLY, EVERYTHING GOES THROUGH THIS REGISTRY:
-#   FACTORY CALLS
-#   SYSTEMS CALLS
-#   GAME,PY CALLS
 
-#STORAGE STRUCTURE
-# _entities: dict[ entity, dict[type, component]]. > component type is a key
-
-# components, systems, factories will use this
 
 from ecs_core.entity import Entity
 from ecs_core.component import Component
