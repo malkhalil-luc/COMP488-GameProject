@@ -14,16 +14,25 @@ class FireSystem(System):
     player's nose position.
     """
 
-    def _fire_player_bullet(self, world, events) -> None:
-        fire_pressed = False
-        for event in events:
-            if event.type == pygame.KEYDOWN:
-                if event.key in (pygame.K_SPACE, pygame.K_LSHIFT, pygame.K_RSHIFT):
-                    fire_pressed = True
-                    break
+    def _fire_player_bullet(self, world, events, frame_count, rapid_fire_timer) -> None:
+        keys = pygame.key.get_pressed()
+        holding_fire = keys[pygame.K_SPACE] or keys[pygame.K_LSHIFT] or keys[pygame.K_RSHIFT]
 
-        if not fire_pressed:
-            return
+        if rapid_fire_timer > 0:
+            if not holding_fire:
+                return
+            if frame_count % 6 != 0:
+                return
+        else:
+            fire_pressed = False
+            for event in events:
+                if event.type == pygame.KEYDOWN:
+                    if event.key in (pygame.K_SPACE, pygame.K_LSHIFT, pygame.K_RSHIFT):
+                        fire_pressed = True
+                        break
+
+            if not fire_pressed:
+                return
 
         player_entities = world.get_entities_with(InputComponent, PositionComponent)
 
@@ -32,6 +41,9 @@ class FireSystem(System):
             bullet_x = pos.x + PLAYER_WIDTH // 2 - BULLET_W // 2
             bullet_y = pos.y
             create_bullet(world, bullet_x, bullet_y)
+            return True
+
+        return False
 
     def _fire_enemy_bullets(self, world, wave_config, frame_count) -> None:
         if wave_config.fire_delay <= 0 or frame_count == 0:
@@ -48,7 +60,7 @@ class FireSystem(System):
                 shooters.append(eid)
 
         if not shooters:
-            return
+            return False
 
         shooters.sort(key=lambda eid: world.get_component(eid, PositionComponent).x)
         shot_count = min(wave_config.shooter_count, len(shooters))
@@ -68,6 +80,7 @@ class FireSystem(System):
                 label="enemy_bullet",
                 color=COLOR_ENEMY,
             )
+        return True
 
     def _fire_leader_bullets(self, world, leader_config, frame_count) -> None:
         if leader_config.fire_delay <= 0 or frame_count == 0:
@@ -107,6 +120,9 @@ class FireSystem(System):
                     label="enemy_bullet",
                     color=COLOR_LEADER,
                 )
+            return True
+
+        return False
 
     def update(self, world, kwargs) -> None:
         """
@@ -121,11 +137,16 @@ class FireSystem(System):
         frame_count = kwargs.get("frame_count", 0)
         wave_config = kwargs.get("wave_config")
         leader_config = kwargs.get("leader_config")
+        rapid_fire_timer = kwargs.get("rapid_fire_timer", 0)
+        kwargs["sound_events"] = kwargs.get("sound_events", [])
 
-        self._fire_player_bullet(world, events)
+        if self._fire_player_bullet(world, events, frame_count, rapid_fire_timer):
+            kwargs["sound_events"].append("fire")
 
         if wave_config is not None:
-            self._fire_enemy_bullets(world, wave_config, frame_count)
+            if self._fire_enemy_bullets(world, wave_config, frame_count):
+                kwargs["sound_events"].append("enemy_fire")
 
         if leader_config is not None:
-            self._fire_leader_bullets(world, leader_config, frame_count)
+            if self._fire_leader_bullets(world, leader_config, frame_count):
+                kwargs["sound_events"].append("leader_fire")

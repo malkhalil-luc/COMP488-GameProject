@@ -1,6 +1,12 @@
+import random
+
 from config import SCORE_ENEMY, SCORE_LEADER
 from ecs_core.system import System
 from components.health import HealthComponent
+from components.position import PositionComponent
+from components.tag import TagComponent
+from entities.effect import create_burst_effect
+from entities.powerup import create_powerup
 
 
 class DamageSystem(System):
@@ -11,18 +17,23 @@ class DamageSystem(System):
 
         events = kwargs.get("collision_events", [])
         escaped_enemies = kwargs.get("escaped_enemies", [])
+        kwargs["sound_events"] = kwargs.get("sound_events", [])
         if not events:
             if not escaped_enemies:
                 return
 
         score = kwargs.get("score", 0)
         lives = kwargs.get("lives", 3)
+        rapid_fire_bonus = 0
+        shield_bonus = 0
+        pickup_text = ""
 
         # Track entities destroyed this frame to prevent double processing
         destroyed = set()
 
         # Leader hit cooldown — counts down in frames
         leader_hit_cooldown = kwargs.get("leader_hit_cooldown", 0)
+        shield_timer = kwargs.get("shield_timer", 0)
 
         for _eid in escaped_enemies:
             lives -= 1
@@ -41,11 +52,29 @@ class DamageSystem(System):
                 if bullet_eid in destroyed or enemy_eid in destroyed:
                     continue
 
+                enemy_pos = world.get_component(enemy_eid, PositionComponent)
                 world.remove_entity(bullet_eid)
                 world.remove_entity(enemy_eid)
                 destroyed.add(bullet_eid)
                 destroyed.add(enemy_eid)
                 score += SCORE_ENEMY
+                kwargs["sound_events"].append("hit_enemy")
+
+                if enemy_pos is not None:
+                    create_burst_effect(
+                        world,
+                        enemy_pos.x + 8,
+                        enemy_pos.y + 8,
+                        (255, 180, 80),
+                    )
+
+                if enemy_pos is not None and random.random() < 0.20:
+                    drop_kind = random.choice([
+                        "powerup_life",
+                        "powerup_rapid",
+                        "powerup_shield",
+                    ])
+                    create_powerup(world, enemy_pos.x, enemy_pos.y, drop_kind)
 
             #  bullet × leader 
             elif event_type == "bullet_leader":
@@ -64,8 +93,22 @@ class DamageSystem(System):
                     if health is not None:
                         health.hp -= 1
                         if health.hp <= 0:
+                            leader_pos = world.get_component(leader_eid, PositionComponent)
                             world.remove_entity(leader_eid)
                             destroyed.add(leader_eid)
+                            if leader_pos is not None:
+                                create_burst_effect(
+                                    world,
+                                    leader_pos.x + 20,
+                                    leader_pos.y + 20,
+                                    (255, 120, 120),
+                                )
+                                create_burst_effect(
+                                    world,
+                                    leader_pos.x + 36,
+                                    leader_pos.y + 24,
+                                    (255, 220, 100),
+                                )
                             kwargs["trigger_victory"] = True
 
             #  enemy × player 
@@ -80,10 +123,12 @@ class DamageSystem(System):
                 world.remove_entity(enemy_eid)
                 destroyed.add(enemy_eid)
 
-                lives -= 1
-                if lives <= 0:
-                    lives = 0
-                    kwargs["trigger_gameover"] = True
+                if shield_timer <= 0:
+                    lives -= 1
+                    kwargs["sound_events"].append("player_hurt")
+                    if lives <= 0:
+                        lives = 0
+                        kwargs["trigger_gameover"] = True
 
             #  leader × player 
             elif event_type == "leader_player":
@@ -93,11 +138,12 @@ class DamageSystem(System):
                     continue
 
                 # Only damage if cooldown expired
-                if leader_hit_cooldown > 0:
+                if leader_hit_cooldown > 0 or shield_timer > 0:
                     continue
 
                 lives -= 1
                 leader_hit_cooldown = 90  # 90 frames = 1.5 sec at 60 FPS
+                kwargs["sound_events"].append("player_hurt")
 
                 if lives <= 0:
                     lives = 0
@@ -113,12 +159,40 @@ class DamageSystem(System):
                 world.remove_entity(bullet_eid)
                 destroyed.add(bullet_eid)
 
-                lives -= 1
-                if lives <= 0:
-                    lives = 0
-                    kwargs["trigger_gameover"] = True
+                if shield_timer <= 0:
+                    lives -= 1
+                    kwargs["sound_events"].append("player_hurt")
+                    if lives <= 0:
+                        lives = 0
+                        kwargs["trigger_gameover"] = True
+
+            elif event_type == "player_powerup":
+                powerup_eid = event["powerup"]
+
+                if powerup_eid in destroyed:
+                    continue
+
+                tag = world.get_component(powerup_eid, TagComponent)
+                world.remove_entity(powerup_eid)
+                destroyed.add(powerup_eid)
+
+                if tag is None:
+                    continue
+
+                if tag.label == "powerup_life":
+                    lives = min(lives + 1, 5)
+                    pickup_text = "EXTRA LIFE"
+                elif tag.label == "powerup_rapid":
+                    rapid_fire_bonus += 360
+                    pickup_text = "RAPID FIRE"
+                elif tag.label == "powerup_shield":
+                    shield_bonus += 300
+                    pickup_text = "SHIELD"
 
         # Write everything back so game.py read it
         kwargs["score"]               = score
         kwargs["lives"]               = lives
         kwargs["leader_hit_cooldown"] = leader_hit_cooldown
+        kwargs["rapid_fire_bonus"]    = rapid_fire_bonus
+        kwargs["shield_bonus"]        = shield_bonus
+        kwargs["pickup_text"]         = pickup_text

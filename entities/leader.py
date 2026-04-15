@@ -56,8 +56,8 @@ def create_leader(
 
     # Collision area
     world.add_component(eid, ColliderComponent(
-        width=leader_config.width - 8,
-        height=leader_config.height - 6,
+        width=leader_config.width,
+        height=leader_config.height,
     ))
 
     return eid

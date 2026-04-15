@@ -45,6 +45,13 @@ class MovementSystem(System):
         for eid in mortal_entities:
             pos = world.get_component(eid, PositionComponent)
             lt  = world.get_component(eid, LifetimeComponent)
+
+            if lt.frames_left is not None:
+                lt.frames_left -= 1
+                if lt.frames_left <= 0:
+                    world.remove_entity(eid)
+                    continue
+
             if lt.destroy_when_offscreen:
                 if pos.y + BULLET_H < FIELD_TOP or pos.y > FIELD_BOTTOM:
                     world.remove_entity(eid)

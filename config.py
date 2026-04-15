@@ -9,7 +9,7 @@ TITLE = "Invasion Spacers"
 # play area bounds,
 # play area starts after the HUD, S
 
-HUD_H = 48
+HUD_H = 64
 BOSS_BAR_H = 48
 
 FIELD_TOP = HUD_H # 48 of 600

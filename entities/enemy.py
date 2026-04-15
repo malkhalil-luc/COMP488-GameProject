@@ -111,8 +111,8 @@ def create_enemy_formation(
             color=COLOR_ENEMY,
         ))
         world.add_component(eid, ColliderComponent(
-            width=ENEMY_WIDTH - 6,
-            height=ENEMY_HEIGHT - 4,
+            width=ENEMY_WIDTH,
+            height=ENEMY_HEIGHT,
         ))
 
         enemy_ids.append(eid)

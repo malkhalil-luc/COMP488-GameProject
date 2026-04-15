@@ -10,3 +10,4 @@ class LifetimeComponent(Component):
             world.add_component(eid, LifetimeComponent())
     """
     destroy_when_offscreen: bool = field(default=True)
+    frames_left: int | None = field(default=None)

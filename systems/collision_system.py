@@ -49,6 +49,7 @@ class CollisionSystem(System):
         enemies        = []
         leaders        = []
         players        = []
+        powerups       = []
 
         for eid in all_collidable:
             tag = world.get_component(eid, TagComponent)
@@ -62,6 +63,8 @@ class CollisionSystem(System):
                 leaders.append(eid)
             elif tag.label == "player":
                 players.append(eid)
+            elif tag.label.startswith("powerup_"):
+                powerups.append(eid)
         #  Pair 1: bullet × enemy 
         for b_eid in player_bullets:
             b_pos = world.get_component(b_eid, PositionComponent)
@@ -139,5 +142,21 @@ class CollisionSystem(System):
                     kwargs["collision_events"].append({
                         "type": "enemy_bullet_player",
                         "bullet": b_eid,
+                        "player": p_eid,
+                    })
+
+        # Pair 6: player × powerup
+        for powerup_eid in powerups:
+            pow_pos = world.get_component(powerup_eid, PositionComponent)
+            pow_col = world.get_component(powerup_eid, ColliderComponent)
+
+            for p_eid in players:
+                p_pos = world.get_component(p_eid, PositionComponent)
+                p_col = world.get_component(p_eid, ColliderComponent)
+
+                if _aabb(pow_pos, pow_col, p_pos, p_col):
+                    kwargs["collision_events"].append({
+                        "type": "player_powerup",
+                        "powerup": powerup_eid,
                         "player": p_eid,
                     })
