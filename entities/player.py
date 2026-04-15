@@ -26,8 +26,6 @@ def create_player(world: World) -> Entity:
     ))
 
     world.add_component(eid, VelocityComponent(vx=0.0, vy=0.0))
-    
-    world.add_component(eid, VelocityComponent(vx=0.0, vy=0.0))
 
 
     world.add_component(eid, InputComponent())

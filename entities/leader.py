@@ -1,4 +1,5 @@
-from config import SCREEN_WIDTH, FIELD_TOP, LEADER_WIDTH, LEADER_HEIGHT, LEADER_HP, COLOR_LEADER
+from config import SCREEN_WIDTH, FIELD_TOP, COLOR_LEADER
+from game_data import LeaderConfig, DEFAULT_LEADER
 from ecs_core.entity import Entity
 from ecs_core.ecs import World
 from components.position import PositionComponent
@@ -9,7 +10,10 @@ from components.health import HealthComponent
 from components.collider import ColliderComponent
 
 
-def create_leader(world: World) -> Entity:
+def create_leader(
+    world: World,
+    leader_config: LeaderConfig = DEFAULT_LEADER,
+) -> Entity:
     """
     Build the Enemy Leader entity and return its ID.
 
@@ -20,7 +24,7 @@ def create_leader(world: World) -> Entity:
 
     
     # Centered horizontally, near the top of the playfield
-    start_x = SCREEN_WIDTH // 2 - LEADER_WIDTH // 2
+    start_x = SCREEN_WIDTH // 2 - leader_config.width // 2
     start_y = FIELD_TOP + 20
 
     # Where 
@@ -37,8 +41,8 @@ def create_leader(world: World) -> Entity:
 
     # What it looks like 
     world.add_component(eid, SpriteComponent(
-        width=LEADER_WIDTH,
-        height=LEADER_HEIGHT,
+        width=leader_config.width,
+        height=leader_config.height,
         color=COLOR_LEADER,
     ))
 
@@ -46,14 +50,14 @@ def create_leader(world: World) -> Entity:
     # Takes LEADER_HP hits before dying, DamageSystem reads and
     # decrements this. HUD reads hp/max_hp to draw the boss HP bar.
     world.add_component(eid, HealthComponent(
-        hp=LEADER_HP,
-        max_hp=LEADER_HP,
+        hp=leader_config.hp,
+        max_hp=leader_config.hp,
     ))
 
     # Collision area
     world.add_component(eid, ColliderComponent(
-        width=LEADER_WIDTH - 8,
-        height=LEADER_HEIGHT - 6,
+        width=leader_config.width - 8,
+        height=leader_config.height - 6,
     ))
 
     return eid

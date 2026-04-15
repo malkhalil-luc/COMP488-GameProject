@@ -4,6 +4,8 @@ from components.velocity import VelocityComponent
 from components.position import PositionComponent
 from components.input import InputComponent
 from components.lifetime import LifetimeComponent
+from components.tag import TagComponent
+from components.sprite import SpriteComponent
 
 class MovementSystem(System):
     """
@@ -14,6 +16,8 @@ class MovementSystem(System):
 
         if (kwargs.get("game_state")) != "play":
             return
+
+        kwargs["escaped_enemies"] = []
 
         # set movement
         moving_entities = world.get_entities_with(PositionComponent, VelocityComponent)
@@ -42,5 +46,18 @@ class MovementSystem(System):
             pos = world.get_component(eid, PositionComponent)
             lt  = world.get_component(eid, LifetimeComponent)
             if lt.destroy_when_offscreen:
-                if pos.y + BULLET_H < FIELD_TOP:
+                if pos.y + BULLET_H < FIELD_TOP or pos.y > FIELD_BOTTOM:
                     world.remove_entity(eid)
+
+        # remove enemies that make it past the player
+        enemy_entities = world.get_entities_with(PositionComponent, TagComponent, SpriteComponent)
+        for eid in list(enemy_entities):
+            tag = world.get_component(eid, TagComponent)
+            if tag.label != "enemy":
+                continue
+
+            pos = world.get_component(eid, PositionComponent)
+            sprite = world.get_component(eid, SpriteComponent)
+            if pos.y > FIELD_BOTTOM or pos.y + sprite.height > FIELD_BOTTOM:
+                world.remove_entity(eid)
+                kwargs["escaped_enemies"].append(eid)

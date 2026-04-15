@@ -9,7 +9,16 @@ from components.collider import ColliderComponent
 from components.lifetime import LifetimeComponent
 
 
-def create_bullet(world: World, x: float, y: float) -> Entity:
+def create_bullet(
+    world: World,
+    x: float,
+    y: float,
+    *,
+    vx: float = 0.0,
+    vy: float = -BULLET_SPEED,
+    label: str = "player_bullet",
+    color: tuple[int, int, int] = COLOR_BULLET,
+) -> Entity:
     """
     Build a single bullet entity at the given position.
 
@@ -26,21 +35,19 @@ def create_bullet(world: World, x: float, y: float) -> Entity:
     # Where it spawns 
     world.add_component(eid, PositionComponent(x=x, y=y))
 
-    # Moves straight up at constant speed
-    # Negative vy because pygame y increases downward — up = negative
     world.add_component(eid, VelocityComponent(
-        vx=0.0,
-        vy=-BULLET_SPEED,
+        vx=vx,
+        vy=vy,
     ))
 
     # What kind of entity this is
-    world.add_component(eid, TagComponent(label="bullet"))
+    world.add_component(eid, TagComponent(label=label))
 
     # What it looks like — small yellow rectangle
     world.add_component(eid, SpriteComponent(
         width=BULLET_W,
         height=BULLET_H,
-        color=COLOR_BULLET,
+        color=color,
     ))
 
     # Collision area — matches sprite exactly for bullets

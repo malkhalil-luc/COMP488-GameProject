@@ -10,8 +10,10 @@ class DamageSystem(System):
             return
 
         events = kwargs.get("collision_events", [])
+        escaped_enemies = kwargs.get("escaped_enemies", [])
         if not events:
-            return
+            if not escaped_enemies:
+                return
 
         score = kwargs.get("score", 0)
         lives = kwargs.get("lives", 3)
@@ -21,6 +23,12 @@ class DamageSystem(System):
 
         # Leader hit cooldown — counts down in frames
         leader_hit_cooldown = kwargs.get("leader_hit_cooldown", 0)
+
+        for _eid in escaped_enemies:
+            lives -= 1
+            if lives <= 0:
+                lives = 0
+                kwargs["trigger_gameover"] = True
 
         for event in events:
             event_type = event["type"]
@@ -95,8 +103,22 @@ class DamageSystem(System):
                     lives = 0
                     kwargs["trigger_gameover"] = True
 
+            # enemy bullet × player
+            elif event_type == "enemy_bullet_player":
+                bullet_eid = event["bullet"]
+
+                if bullet_eid in destroyed:
+                    continue
+
+                world.remove_entity(bullet_eid)
+                destroyed.add(bullet_eid)
+
+                lives -= 1
+                if lives <= 0:
+                    lives = 0
+                    kwargs["trigger_gameover"] = True
+
         # Write everything back so game.py read it
         kwargs["score"]               = score
         kwargs["lives"]               = lives
         kwargs["leader_hit_cooldown"] = leader_hit_cooldown
-

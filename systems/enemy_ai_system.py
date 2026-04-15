@@ -1,7 +1,10 @@
-from config import ENEMY_SPEED, LEADER_SPEED
 from ecs_core.system import System
 from components.velocity import VelocityComponent
 from components.tag import TagComponent
+from components.position import PositionComponent
+from config import SCREEN_WIDTH, FIELD_TOP, FIELD_BOTTOM
+from game_data import DEFAULT_WAVE, DEFAULT_LEADER
+
 
 class EnemyAISystem(System):
     """
@@ -13,6 +16,10 @@ class EnemyAISystem(System):
         """
         if kwargs.get("game_state") != "play":
             return
+
+        wave_config = kwargs.get("wave_config", DEFAULT_WAVE)
+        leader_config = kwargs.get("leader_config", DEFAULT_LEADER)
+        frame_count = kwargs.get("frame_count", 0)
         
         enemy_count = 0
 
@@ -23,33 +30,39 @@ class EnemyAISystem(System):
             vel = world.get_component(eid, VelocityComponent)
 
             if tag.label == "enemy":
-                # Regular enemies move down
-                vel.vy = ENEMY_SPEED
-                vel.vx = 0.0
+                # Regular enemies move down with a simple pattern
+                if wave_config.move_pattern == "sway":
+                    direction = -1 if (frame_count // 45) % 2 == 0 else 1
+                    vel.vx = 1.2 * direction
+                elif wave_config.move_pattern == "zigzag":
+                    direction = -1 if (frame_count // 25) % 2 == 0 else 1
+                    vel.vx = 1.8 * direction
+                else:
+                    vel.vx = 0.0
+
+                vel.vy = wave_config.speed
                 enemy_count += 1
 
             elif tag.label == "leader":
                 # Leader move faster — side to side
-                from components.position import PositionComponent
-                from config import LEADER_WIDTH, LEADER_HEIGHT, SCREEN_WIDTH, FIELD_TOP, FIELD_BOTTOM, LEADER_SPEED_X, LEADER_SPEED_Y
-
+                
                 pos = world.get_component(eid, PositionComponent)
 
                 # initialise direction on first frame
                 if vel.vx == 0.0 and vel.vy == 0.0:
-                    vel.vx = LEADER_SPEED_X
-                    vel.vy = LEADER_SPEED_Y
+                    vel.vx = leader_config.speed_x
+                    vel.vy = leader_config.speed_y
 
                 # bounce off left and right walls
                 if pos.x <= 0:
                     vel.vx = abs(vel.vx)
-                elif pos.x + LEADER_WIDTH >= SCREEN_WIDTH:
+                elif pos.x + leader_config.width >= SCREEN_WIDTH:
                     vel.vx = -abs(vel.vx)
 
                 # bounce off top and bottom of playfield
                 if pos.y <= FIELD_TOP:
                     vel.vy = abs(vel.vy)
-                elif pos.y + LEADER_HEIGHT >= FIELD_BOTTOM:
+                elif pos.y + leader_config.height >= FIELD_BOTTOM:
                     vel.vy = -abs(vel.vy)
                     
         leader_alive = kwargs.get("leader_alive", False)

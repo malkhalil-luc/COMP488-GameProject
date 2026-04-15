@@ -44,15 +44,18 @@ class CollisionSystem(System):
             PositionComponent, ColliderComponent, TagComponent
         )
 
-        bullets  = []
-        enemies  = []
-        leaders  = []
-        players  = []
+        player_bullets = []
+        enemy_bullets  = []
+        enemies        = []
+        leaders        = []
+        players        = []
 
         for eid in all_collidable:
             tag = world.get_component(eid, TagComponent)
-            if tag.label == "bullet":
-                bullets.append(eid)
+            if tag.label == "player_bullet":
+                player_bullets.append(eid)
+            elif tag.label == "enemy_bullet":
+                enemy_bullets.append(eid)
             elif tag.label == "enemy":
                 enemies.append(eid)
             elif tag.label == "leader":
@@ -60,7 +63,7 @@ class CollisionSystem(System):
             elif tag.label == "player":
                 players.append(eid)
         #  Pair 1: bullet × enemy 
-        for b_eid in bullets:
+        for b_eid in player_bullets:
             b_pos = world.get_component(b_eid, PositionComponent)
             b_col = world.get_component(b_eid, ColliderComponent)
 
@@ -76,7 +79,7 @@ class CollisionSystem(System):
                     })
 
         #  Pair 2: bullet × leader 
-        for b_eid in bullets:
+        for b_eid in player_bullets:
             b_pos = world.get_component(b_eid, PositionComponent)
             b_col = world.get_component(b_eid, ColliderComponent)
 
@@ -120,5 +123,21 @@ class CollisionSystem(System):
                     kwargs["collision_events"].append({
                         "type":   "leader_player",
                         "leader": l_eid,
+                        "player": p_eid,
+                    })
+
+        # Pair 5: enemy bullet × player
+        for b_eid in enemy_bullets:
+            b_pos = world.get_component(b_eid, PositionComponent)
+            b_col = world.get_component(b_eid, ColliderComponent)
+
+            for p_eid in players:
+                p_pos = world.get_component(p_eid, PositionComponent)
+                p_col = world.get_component(p_eid, ColliderComponent)
+
+                if _aabb(b_pos, b_col, p_pos, p_col):
+                    kwargs["collision_events"].append({
+                        "type": "enemy_bullet_player",
+                        "bullet": b_eid,
                         "player": p_eid,
                     })

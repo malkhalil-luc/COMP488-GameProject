@@ -1,12 +1,12 @@
 #state machine + orchestration
 import pygame
+from game_data import LEVELS
+from game_state import GameRuntime
 from config import (
     SCREEN_WIDTH, SCREEN_HEIGHT, FPS, TITLE,
     HUD_H, BOSS_BAR_H, FIELD_TOP, FIELD_BOTTOM,
-    COLOR_BG, COLOR_PLAYER, COLOR_ENEMY, COLOR_LEADER, COLOR_BULLET,
+    COLOR_BG, COLOR_LEADER,
     FONT_SIZE, FONT_TITLE_SIZE, FONT_SUB_SIZE,
-    STARTING_LIVES, SCORE_ENEMY, SCORE_LEADER,
-    LEADER_WIDTH, LEADER_HEIGHT,
 )
 from ecs_core.ecs import World
 from systems.input_system import InputSystem
@@ -21,6 +21,7 @@ from entities.enemy import create_enemy_formation
 from entities.leader import create_leader
 from components.sprite import SpriteComponent
 from components.input import InputComponent
+from components.tag import TagComponent
 
 
 class Game:
@@ -45,21 +46,21 @@ class Game:
         self.world = World()
         self._register_systems()
 
-        #  game state 
-        self.state = "title"
-
-        #  game variables 
-        # Initialised here, reset on every new run via _reset()
-        self.score       = 0
-        self.lives       = STARTING_LIVES
-        self.leader_alive = False
-        self.leader_hit_cooldown = 0
+        #  runtime game state 
+        self.runtime = GameRuntime()
+        self.levels = LEVELS
+        self.current_level_index = 0
+        self.current_wave_index = 0
+        self.current_wave_config = self.levels[0].waves[0]
+        self.current_leader_config = self.levels[0].leader
+        self.frame_count = 0
+        self.transition_timer = 0
+        self.transition_text = ""
 
         # Entity IDs — stored so game.py can reference them if needed
         self.player_eid  = None
         self.enemy_eids  = []
 
-        self.player_flash_timer = 0
 
         self.heart_img = pygame.image.load("assets/sprites/heart.png").convert_alpha()
         self.heart_img = pygame.transform.scale(self.heart_img, (20, 20))
@@ -91,18 +92,85 @@ class Game:
             2. Clear the entire world (remove all entities)
             3. Spawn fresh player + enemy formation
         """
-        self.score        = 0
-        self.lives        = STARTING_LIVES
-        self.leader_alive = False
-        self.leader_hit_cooldown = 0
-        self.player_flash_timer = 0
+        self.runtime.reset_run_values()
+        self.current_level_index = 0
+        self.current_wave_index = 0
+        self.frame_count = 0
+        self.transition_timer = 0
+        self.transition_text = ""
+        self.current_wave_config = self.levels[0].waves[0]
+        self.current_leader_config = self.levels[0].leader
+
 
         # clear existing entities from the world
         self.world.clear()
 
         # Spawn initial entities via factories
         self.player_eid = create_player(self.world)
-        self.enemy_eids = create_enemy_formation(self.world)
+        self._start_current_wave()
+
+    def _clear_non_player_entities(self) -> None:
+        tagged_entities = self.world.get_entities_with(TagComponent)
+
+        for eid in list(tagged_entities):
+            tag = self.world.get_component(eid, TagComponent)
+            if tag.label != "player":
+                self.world.remove_entity(eid)
+
+    def _start_transition(self, text: str, frames: int = 90) -> None:
+        self.runtime.state = "transition"
+        self.transition_text = text
+        self.transition_timer = frames
+
+    def _start_current_wave(self) -> None:
+        self._clear_non_player_entities()
+        level = self.levels[self.current_level_index]
+        self.current_wave_config = level.waves[self.current_wave_index]
+        self.current_leader_config = level.leader
+        self.runtime.leader_alive = False
+        self.enemy_eids = create_enemy_formation(self.world, self.current_wave_config)
+        self._start_transition(
+            f"{level.name}  -  Wave {self.current_wave_index + 1}"
+        )
+
+    def _start_level_leader(self) -> None:
+        self._clear_non_player_entities()
+        level = self.levels[self.current_level_index]
+        self.current_leader_config = level.leader
+        create_leader(self.world, self.current_leader_config)
+        self.runtime.leader_alive = True
+        self._start_transition(f"{level.name}  -  Leader")
+
+    def _advance_after_wave_clear(self) -> None:
+        level = self.levels[self.current_level_index]
+
+        if self.current_wave_index < len(level.waves) - 1:
+            self.current_wave_index += 1
+            self._start_current_wave()
+        else:
+            self._start_level_leader()
+
+    def _advance_after_leader_defeat(self) -> None:
+        self.runtime.leader_alive = False
+        self._clear_non_player_entities()
+
+        if self.current_level_index < len(self.levels) - 1:
+            self.current_level_index += 1
+            self.current_wave_index = 0
+            self._start_current_wave()
+        else:
+            self.runtime.state = "victory"
+
+    def _update_transition(self) -> None:
+        if self.runtime.state != "transition":
+            return
+
+        if self.transition_timer > 0:
+            self.transition_timer -= 1
+
+        if self.transition_timer <= 0:
+            self.transition_text = ""
+            self.runtime.state = "play"
 
 
     def run(self) -> None:
@@ -126,23 +194,29 @@ class Game:
                 if event.type == pygame.KEYDOWN:
 
                     # Title screen → start game
-                    if self.state == "title" and event.key == pygame.K_SPACE:
+                    if self.runtime.state == "title" and event.key == pygame.K_SPACE:
                         self._reset()
-                        self.state = "play"
                         events = []
+
 
                     # Play → pause / pause → play
                     elif event.key in (pygame.K_p, pygame.K_ESCAPE):
-                        if self.state == "play":
-                            self.state = "paused"
-                        elif self.state == "paused":
-                            self.state = "play"
+                        if self.runtime.state == "play":
+                            self.runtime.state = "paused"
+                        elif self.runtime.state == "paused":
+                            self.runtime.state = "play"
+
 
                     # Gameover or victory → restart
                     elif event.key == pygame.K_r:
-                        if self.state in ("gameover", "victory"):
+                        if self.runtime.state in ("gameover", "victory"):
                             self._reset()
-                            self.state = "play"
+
+
+            self._update_transition()
+
+            if self.runtime.state == "play":
+                self.frame_count += 1
 
             #  Clear screen 
             self.screen.fill(COLOR_BG)
@@ -150,33 +224,40 @@ class Game:
             # Build kwargs for this dict frame 
             # Systems read from and write back to this dict.
             fDict_kwargs = {
-                "screen":       self.screen,
-                "events":       events,
-                "game_state":   self.state,
-                "score":        self.score,
-                "lives":        self.lives,
-                "leader_alive": self.leader_alive,
-                "leader_hit_cooldown":  self.leader_hit_cooldown,
+                "screen": self.screen,
+                "events": events,
+                "game_state": self.runtime.state,
+                "score": self.runtime.score,
+                "lives": self.runtime.lives,
+                "leader_alive": self.runtime.leader_alive,
+                "leader_hit_cooldown": self.runtime.leader_hit_cooldown,
+                "wave_config": self.current_wave_config,
+                "leader_config": self.current_leader_config,
+                "frame_count": self.frame_count,
             }
+
 
             #  Update world (runs all systems in order) 
             self.world.update(fDict_kwargs)
-            self.leader_hit_cooldown = fDict_kwargs.get("leader_hit_cooldown", 0)
-            if self.leader_hit_cooldown > 0:
-                self.leader_hit_cooldown -= 1
+            self.runtime.leader_hit_cooldown = fDict_kwargs.get(
+                "leader_hit_cooldown",
+                self.runtime.leader_hit_cooldown,
+            )
+
+            if self.runtime.leader_hit_cooldown > 0:
+                self.runtime.leader_hit_cooldown -= 1
 
             ### flash the player sprite when hit
-            if fDict_kwargs.get("lives", self.lives) < self.lives:
-                self.player_flash_timer = 60  # 1 seconds of flashing
+            if fDict_kwargs.get("lives", self.runtime.lives) < self.runtime.lives:
+                self.runtime.player_flash_timer = 60  # 1 second of flashing
 
-            if self.player_flash_timer > 0:
-                self.player_flash_timer -= 1
+            if self.runtime.player_flash_timer > 0:
+                self.runtime.player_flash_timer -= 1
                 # toggle visible every 6 frames — creates a flash effect
-
                 player_entities = self.world.get_entities_with(InputComponent, SpriteComponent)
                 for eid in player_entities:
                     sprite = self.world.get_component(eid, SpriteComponent)
-                    sprite.visible = (self.player_flash_timer % 6) < 3
+                    sprite.visible = (self.runtime.player_flash_timer % 6) < 3
             else:
                 # make sure player is always visible when not flashing
                 player_entities = self.world.get_entities_with(InputComponent, SpriteComponent)
@@ -188,36 +269,37 @@ class Game:
 
             #  Read signals written by systems
             # Score and lives may have been updated by DamageSystem
-            self.score = fDict_kwargs.get("score", self.score)
-            self.lives = fDict_kwargs.get("lives", self.lives)
+            self.runtime.score = fDict_kwargs.get("score", self.runtime.score)
+            self.runtime.lives = fDict_kwargs.get("lives", self.runtime.lives)
 
             # Wave cleared → spawn the leader
-            if fDict_kwargs.get("wave_cleared") and not self.leader_alive:
-                create_leader(self.world)
-                self.leader_alive = True
+            if fDict_kwargs.get("wave_cleared") and not self.runtime.leader_alive:
+                self._advance_after_wave_clear()
 
-            # State transitions triggered by DamageSystem
             if fDict_kwargs.get("trigger_victory"):
-                self.state = "victory"
-                self.leader_alive = False
+                self._advance_after_leader_defeat()
 
             if fDict_kwargs.get("trigger_gameover"):
-                self.state = "gameover"
+                self.runtime.state = "gameover"
+
 
             #  Draw HUD on top of entities 
             # RenderSystem drew entities. Now game.py draws UI on top.
-            if self.state in ("play", "paused"):
+            if self.runtime.state in ("play", "paused"):
                 self._draw_hud()
 
             #  Draw state overlays 
-            if self.state == "title":
+            if self.runtime.state == "title":
                 self._draw_title_overlay()
-            elif self.state == "paused":
+            elif self.runtime.state == "transition":
+                self._draw_transition_overlay()
+            elif self.runtime.state == "paused":
                 self._draw_pause_overlay()
-            elif self.state == "gameover":
+            elif self.runtime.state == "gameover":
                 self._draw_gameover_overlay()
-            elif self.state == "victory":
+            elif self.runtime.state == "victory":
                 self._draw_victory_overlay()
+
 
             pygame.display.flip()
             self.clock.tick(FPS)
@@ -231,11 +313,17 @@ class Game:
         """
        
         #  Score (top-left) 
-        score_surf = self.font.render(f"Score: {self.score}", True, (240, 240, 240))
+        score_surf = self.font.render(f"Score: {self.runtime.score}", True, (240, 240, 240))
         self.screen.blit(score_surf, score_surf.get_rect(topleft=(12, 14)))
 
+        level_label = f"L{self.current_level_index + 1}  W{self.current_wave_index + 1}"
+        if self.runtime.leader_alive:
+            level_label = f"L{self.current_level_index + 1}  LEADER"
+        level_surf = self.font.render(level_label, True, (200, 200, 200))
+        self.screen.blit(level_surf, level_surf.get_rect(center=(SCREEN_WIDTH // 2, 24)))
+
         #  Lives (top-right) — shown as heart count  
-        for i in range(self.lives):
+        for i in range(self.runtime.lives):
             hx = SCREEN_WIDTH - 20 - i * 26
             self.screen.blit(self.heart_img, (hx - 20 , 12))
 
@@ -246,8 +334,9 @@ class Game:
         )
 
         #  Boss HP bar (bottom strip — only during leader phase) 
-        if self.leader_alive:
+        if self.runtime.leader_alive:
             self._draw_boss_bar()
+
 
     def _draw_boss_bar(self) -> None:
         """
@@ -333,13 +422,22 @@ class Game:
         resume = self.font_sub.render("Press P or ESC to Resume", True, (200, 200, 200))
         self.screen.blit(resume, resume.get_rect(centerx=panel.centerx, top=panel.top + 130))
 
+    def _draw_transition_overlay(self) -> None:
+        panel = self._draw_overlay_panel()
+
+        title = self.font_title.render(self.transition_text, True, (240, 240, 240))
+        self.screen.blit(title, title.get_rect(centerx=panel.centerx, top=panel.top + 55))
+
+        ready = self.font_sub.render("Get Ready", True, (200, 200, 120))
+        self.screen.blit(ready, ready.get_rect(centerx=panel.centerx, top=panel.top + 130))
+
     def _draw_gameover_overlay(self) -> None:
         panel = self._draw_overlay_panel()
 
         title = self.font_title.render("GAME OVER", True, (220, 60, 60))
         self.screen.blit(title, title.get_rect(centerx=panel.centerx, top=panel.top + 30))
 
-        score = self.font_sub.render(f"Final Score: {self.score}", True, (240, 240, 240))
+        score = self.font_sub.render(f"Final Score: {self.runtime.score}", True, (240, 240, 240))
         self.screen.blit(score, score.get_rect(centerx=panel.centerx, top=panel.top + 100))
 
         restart = self.font.render("Press R to Restart", True, (180, 180, 180))
@@ -351,7 +449,7 @@ class Game:
         title = self.font_title.render("VICTORY!", True, (100, 220, 100))
         self.screen.blit(title, title.get_rect(centerx=panel.centerx, top=panel.top + 30))
 
-        score = self.font_sub.render(f"Final Score: {self.score}", True, (240, 240, 240))
+        score = self.font_sub.render(f"Final Score: {self.runtime.score}", True, (240, 240, 240))
         self.screen.blit(score, score.get_rect(centerx=panel.centerx, top=panel.top + 100))
 
         restart = self.font.render("Press R to Play Again", True, (180, 180, 180))
