@@ -62,6 +62,7 @@ class Game:
         self.last_audio_state = ""
         self.pending_spawn_sound = ""
         self.show_debug = False
+        self.guard_phase_active = False
 
         # Entity IDs — stored so game.py can reference them if needed
         self.player_eid  = None
@@ -137,6 +138,7 @@ class Game:
         self.current_wave_config = level.waves[self.current_wave_index]
         self.current_leader_config = level.leader
         self.runtime.leader_alive = False
+        self.guard_phase_active = False
         self.enemy_eids = create_enemy_formation(self.world, self.current_wave_config)
         transition_sound = "level_transition"
         if self.current_wave_index > 0:
@@ -153,7 +155,9 @@ class Game:
         create_leader(self.world, self.current_leader_config)
         create_leader_guard_line(self.world)
         self.runtime.leader_alive = True
+        self.guard_phase_active = True
         self.pending_spawn_sound = "leader_spawn"
+        self._set_status_text("DEFENSE LINE INCOMING", 110)
         self._start_transition(f"{level.name}  -  Leader", sound_name="level_transition")
 
     def _advance_after_wave_clear(self) -> None:
@@ -167,6 +171,7 @@ class Game:
 
     def _advance_after_leader_defeat(self) -> None:
         self.runtime.leader_alive = False
+        self.guard_phase_active = False
         self._clear_non_player_entities()
 
         if self.current_level_index < len(self.levels) - 1:
@@ -189,6 +194,14 @@ class Game:
             if self.pending_spawn_sound:
                 self.audio.play(self.pending_spawn_sound)
                 self.pending_spawn_sound = ""
+
+    def _set_status_text(self, text: str, timer: int = 90) -> None:
+        self.runtime.status_text = text
+        self.runtime.status_text_timer = timer
+
+    def _set_screen_flash(self, color: tuple[int, int, int], timer: int = 10) -> None:
+        self.runtime.screen_flash_color = color
+        self.runtime.screen_flash_timer = timer
 
     def _handle_state_audio(self, force: bool = False) -> None:
         if not force and self.runtime.state == self.last_audio_state:
@@ -314,9 +327,18 @@ class Game:
                     if self.runtime.pickup_text_timer == 0:
                         self.runtime.pickup_text = ""
 
+                if self.runtime.status_text_timer > 0:
+                    self.runtime.status_text_timer -= 1
+                    if self.runtime.status_text_timer == 0:
+                        self.runtime.status_text = ""
+
+                if self.runtime.screen_flash_timer > 0:
+                    self.runtime.screen_flash_timer -= 1
+
             ### flash the player sprite when hit
             if fDict_kwargs.get("lives", self.runtime.lives) < self.runtime.lives:
                 self.runtime.player_flash_timer = 60  # 1 second of flashing
+                self._set_screen_flash((220, 60, 60), 10)
 
             if self.runtime.player_flash_timer > 0:
                 self.runtime.player_flash_timer -= 1
@@ -346,10 +368,29 @@ class Game:
                 self.runtime.pickup_text_timer = 90
                 if new_pickup_text != self.last_pickup_text or self.runtime.pickup_text_timer == 90:
                     self.audio.play("powerup")
+                if new_pickup_text == "SHIELD":
+                    self._set_screen_flash((255, 220, 80), 8)
+                elif new_pickup_text == "RAPID FIRE":
+                    self._set_screen_flash((80, 180, 255), 8)
+                elif new_pickup_text == "EXTRA LIFE":
+                    self._set_screen_flash((80, 220, 120), 8)
                 self.last_pickup_text = new_pickup_text
 
             for sound_name in fDict_kwargs.get("sound_events", []):
                 self.audio.play(sound_name)
+
+            if self.guard_phase_active:
+                tagged_entities = self.world.get_entities_with(TagComponent)
+                guard_alive = False
+                for eid in tagged_entities:
+                    tag = self.world.get_component(eid, TagComponent)
+                    if tag.label == "leader_guard":
+                        guard_alive = True
+                        break
+                if not guard_alive:
+                    self.guard_phase_active = False
+                    self._set_status_text("LEADER ACTIVE", 90)
+                    self._set_screen_flash((255, 170, 80), 10)
 
             # Wave cleared → spawn the leader
             if fDict_kwargs.get("wave_cleared") and not self.runtime.leader_alive:
@@ -380,6 +421,8 @@ class Game:
                 self._draw_gameover_overlay()
             elif self.runtime.state == "victory":
                 self._draw_victory_overlay()
+
+            self._draw_feedback_overlay()
 
             if self.show_debug:
                 self._draw_debug_panel()
@@ -434,6 +477,10 @@ class Game:
             pickup_surf = self.font.render(self.runtime.pickup_text, True, (240, 240, 240))
             self.screen.blit(pickup_surf, pickup_surf.get_rect(center=(SCREEN_WIDTH // 2, HUD_H + 18)))
 
+        if self.runtime.status_text_timer > 0 and self.runtime.status_text:
+            status_surf = self.font.render(self.runtime.status_text, True, (255, 230, 140))
+            self.screen.blit(status_surf, status_surf.get_rect(center=(SCREEN_WIDTH // 2, HUD_H + 42)))
+
         #  Boss HP bar (bottom strip — only during leader phase) 
         if self.runtime.leader_alive:
             self._draw_boss_bar()
@@ -485,6 +532,18 @@ class Game:
             centerx=SCREEN_WIDTH // 2,
             bottom=bar_y - 4,
         ))
+
+    def _draw_feedback_overlay(self) -> None:
+        if self.runtime.screen_flash_timer <= 0:
+            return
+
+        if self.runtime.state not in ("play", "paused", "transition"):
+            return
+
+        alpha = min(120, self.runtime.screen_flash_timer * 10)
+        flash = pygame.Surface((SCREEN_WIDTH, SCREEN_HEIGHT), pygame.SRCALPHA)
+        flash.fill((*self.runtime.screen_flash_color, alpha))
+        self.screen.blit(flash, (0, 0))
 
     def _get_audio_status(self) -> str:
         if not self.audio.enabled:
@@ -586,16 +645,21 @@ class Game:
     def _draw_gameover_overlay(self) -> None:
         panel = self._draw_overlay_panel()
 
-        title = self.font_title.render("GAME OVER", True, (220, 60, 60))
+        tint = pygame.Surface((panel.width, panel.height), pygame.SRCALPHA)
+        tint.fill((90, 20, 20, 70))
+        self.screen.blit(tint, panel.topleft)
+        pygame.draw.rect(self.screen, (150, 70, 70), panel, 2)
+
+        title = self.font_title.render("GAME OVER", True, (245, 245, 245))
         self.screen.blit(title, title.get_rect(centerx=panel.centerx, top=panel.top + 30))
 
-        score = self.font_sub.render(f"Final Score: {self.runtime.score}", True, (240, 240, 240))
+        score = self.font_sub.render(f"Final Score: {self.runtime.score}", True, (245, 245, 245))
         self.screen.blit(score, score.get_rect(centerx=panel.centerx, top=panel.top + 100))
 
-        restart = self.font.render("Press R to Restart", True, (180, 180, 180))
+        restart = self.font.render("Press R to Restart", True, (230, 230, 230))
         self.screen.blit(restart, restart.get_rect(centerx=panel.centerx, top=panel.top + 146))
 
-        quit_text = self.font.render("Q: Quit    M: Mute / Unmute    F1: Debug", True, (180, 180, 180))
+        quit_text = self.font.render("Q: Quit    M: Mute / Unmute    F1: Debug", True, (230, 230, 230))
         self.screen.blit(quit_text, quit_text.get_rect(centerx=panel.centerx, top=panel.top + 178))
 
     def _draw_victory_overlay(self) -> None:

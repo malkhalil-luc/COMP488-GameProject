@@ -1,4 +1,6 @@
 # factory: build the enemy entities
+import random
+
 from components.formation import FormationComponent
 from config import (
     SCREEN_WIDTH,
@@ -44,7 +46,7 @@ def _build_wave_positions(wave_config: WaveConfig) -> list[tuple[float, float]]:
         for row in range(wave_config.rows):
             y = start_y + row * (ENEMY_HEIGHT + wave_config.gap_y)
             _add_row_positions(positions, wave_config.cols, y, wave_config.gap_x)
-        return positions
+        return _apply_holes(positions, wave_config)
 
     if wave_config.formation == "staggered_rows":
         step_x = ENEMY_WIDTH + wave_config.gap_x
@@ -52,7 +54,7 @@ def _build_wave_positions(wave_config: WaveConfig) -> list[tuple[float, float]]:
             y = start_y + row * (ENEMY_HEIGHT + wave_config.gap_y)
             offset_x = step_x // 2 if row % 2 == 1 else 0
             _add_row_positions(positions, wave_config.cols, y, wave_config.gap_x, offset_x)
-        return positions
+        return _apply_holes(positions, wave_config)
 
     if wave_config.formation == "split_groups":
         left_count = wave_config.cols // 2
@@ -75,7 +77,7 @@ def _build_wave_positions(wave_config: WaveConfig) -> list[tuple[float, float]]:
             for col in range(right_count):
                 x = right_start_x + col * (ENEMY_WIDTH + wave_config.gap_x)
                 positions.append((float(x), float(y)))
-        return positions
+        return _apply_holes(positions, wave_config)
 
     if wave_config.formation == "v_shape":
         for row in range(wave_config.rows):
@@ -83,13 +85,48 @@ def _build_wave_positions(wave_config: WaveConfig) -> list[tuple[float, float]]:
             row_count = max(2, wave_config.cols - 2 * (wave_config.rows - row - 1))
             row_count = min(row_count, wave_config.cols)
             _add_row_positions(positions, row_count, y, wave_config.gap_x)
-        return positions
+        return _apply_holes(positions, wave_config)
 
     for row in range(wave_config.rows):
         y = start_y + row * (ENEMY_HEIGHT + wave_config.gap_y)
         _add_row_positions(positions, wave_config.cols, y, wave_config.gap_x)
 
-    return positions
+    return _apply_holes(positions, wave_config)
+
+
+def _apply_holes(
+    positions: list[tuple[float, float]],
+    wave_config: WaveConfig,
+) -> list[tuple[float, float]]:
+    if wave_config.hole_count <= 0:
+        return positions
+
+    rows: dict[float, list[tuple[float, float]]] = {}
+    for x, y in positions:
+        rows.setdefault(y, []).append((x, y))
+
+    row_keys = list(rows.keys())
+    removed = 0
+    attempts = 0
+
+    while removed < wave_config.hole_count and attempts < wave_config.hole_count * 8:
+        attempts += 1
+        row_y = random.choice(row_keys)
+        row_positions = rows[row_y]
+
+        if len(row_positions) <= 2:
+            continue
+
+        remove_index = random.randrange(len(row_positions))
+        row_positions.pop(remove_index)
+        removed += 1
+
+    result: list[tuple[float, float]] = []
+    for row_y in sorted(rows.keys()):
+        row_positions = sorted(rows[row_y], key=lambda item: item[0])
+        result.extend(row_positions)
+
+    return result
 
 
 def create_enemy_formation(

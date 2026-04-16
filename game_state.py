@@ -15,6 +15,10 @@ class GameRuntime:
     shield_timer: int = 0
     pickup_text: str = ""
     pickup_text_timer: int = 0
+    status_text: str = ""
+    status_text_timer: int = 0
+    screen_flash_timer: int = 0
+    screen_flash_color: tuple[int, int, int] = (255, 255, 255)
 
     def reset_run_values(self) -> None:
         self.score = 0
@@ -26,3 +30,7 @@ class GameRuntime:
         self.shield_timer = 0
         self.pickup_text = ""
         self.pickup_text_timer = 0
+        self.status_text = ""
+        self.status_text_timer = 0
+        self.screen_flash_timer = 0
+        self.screen_flash_color = (255, 255, 255)
