@@ -63,6 +63,14 @@ class Game:
         self.pending_spawn_sound = ""
         self.show_debug = False
         self.guard_phase_active = False
+        self.menu_options = ["Start Game", "Controls", "Quit"]
+        self.menu_selected = 0
+        self.pause_options = ["Resume", "Controls", "Quit"]
+        self.end_options = ["Restart", "Controls", "Quit"]
+        self.pause_selected = 0
+        self.gameover_selected = 0
+        self.victory_selected = 0
+        self.controls_return_state = "title"
 
         # Entity IDs — stored so game.py can reference them if needed
         self.player_eid  = None
@@ -209,7 +217,7 @@ class Game:
 
         self.last_audio_state = self.runtime.state
 
-        if self.runtime.state in ("title", "paused"):
+        if self.runtime.state in ("title", "controls", "paused"):
             self.audio.play_loop("ambience")
             return
 
@@ -225,6 +233,84 @@ class Game:
         if self.runtime.state == "victory":
             self.audio.stop_loop()
             self.audio.play("victory")
+
+    def _move_menu_selection(self, direction: int) -> None:
+        if self.runtime.state == "title":
+            self.menu_selected = (self.menu_selected + direction) % len(self.menu_options)
+        elif self.runtime.state == "paused":
+            self.pause_selected = (self.pause_selected + direction) % len(self.pause_options)
+        elif self.runtime.state == "gameover":
+            self.gameover_selected = (self.gameover_selected + direction) % len(self.end_options)
+        elif self.runtime.state == "victory":
+            self.victory_selected = (self.victory_selected + direction) % len(self.end_options)
+
+    def _activate_current_menu_option(self) -> bool:
+        if self.runtime.state == "title":
+            choice = self.menu_options[self.menu_selected]
+            if choice == "Start Game":
+                self._reset()
+                return True
+            if choice == "Controls":
+                self.controls_return_state = "title"
+                self.runtime.state = "controls"
+                return False
+            if choice == "Quit":
+                return False
+
+        elif self.runtime.state == "paused":
+            choice = self.pause_options[self.pause_selected]
+            if choice == "Resume":
+                self.runtime.state = "play"
+                return False
+            if choice == "Controls":
+                self.controls_return_state = "paused"
+                self.runtime.state = "controls"
+                return False
+            if choice == "Quit":
+                return False
+
+        elif self.runtime.state == "gameover":
+            choice = self.end_options[self.gameover_selected]
+            if choice == "Restart":
+                self._reset()
+                return True
+            if choice == "Controls":
+                self.controls_return_state = "gameover"
+                self.runtime.state = "controls"
+                return False
+            if choice == "Quit":
+                return False
+
+        elif self.runtime.state == "victory":
+            choice = self.end_options[self.victory_selected]
+            if choice == "Restart":
+                self._reset()
+                return True
+            if choice == "Controls":
+                self.controls_return_state = "victory"
+                self.runtime.state = "controls"
+                return False
+            if choice == "Quit":
+                return False
+
+        return False
+
+    def _draw_menu_options(
+        self,
+        panel: pygame.Rect,
+        options: list[str],
+        selected_index: int,
+        top: int,
+    ) -> None:
+        for index, option in enumerate(options):
+            is_selected = index == selected_index
+            color = (255, 240, 150) if is_selected else (210, 210, 210)
+            prefix = "> " if is_selected else "  "
+            option_surf = self.font_sub.render(f"{prefix}{option}", True, color)
+            self.screen.blit(
+                option_surf,
+                option_surf.get_rect(centerx=panel.centerx, top=top + index * 34),
+            )
 
 
     def run(self) -> None:
@@ -249,33 +335,46 @@ class Game:
                     if event.key == pygame.K_F1:
                         self.show_debug = not self.show_debug
 
-                    # Title screen → start game
-                    if self.runtime.state == "title" and event.key == pygame.K_SPACE:
-                        self.audio.play("ui_confirm")
-                        self._reset()
-                        events = []
+                    if event.key == pygame.K_m:
+                        self.audio.toggle_mute()
+                        continue
 
+                    if self.runtime.state == "controls":
+                        if event.key in (pygame.K_ESCAPE, pygame.K_BACKSPACE, pygame.K_SPACE, pygame.K_RETURN):
+                            self.audio.play("ui_confirm")
+                            self.runtime.state = self.controls_return_state
+                        continue
 
-                    # Play → pause / pause → play
-                    elif event.key in (pygame.K_p, pygame.K_ESCAPE):
+                    if event.key in (pygame.K_p, pygame.K_ESCAPE):
                         if self.runtime.state == "play":
                             self.runtime.state = "paused"
-                        elif self.runtime.state == "paused":
+                            self.pause_selected = 0
+                            continue
+                        if self.runtime.state == "paused":
                             self.runtime.state = "play"
+                            continue
 
+                    if self.runtime.state in ("title", "paused", "gameover", "victory"):
+                        if event.key in (pygame.K_UP, pygame.K_w):
+                            self._move_menu_selection(-1)
+                            self.audio.play("ui_confirm")
+                        elif event.key in (pygame.K_DOWN, pygame.K_s):
+                            self._move_menu_selection(1)
+                            self.audio.play("ui_confirm")
+                        elif event.key in (pygame.K_RETURN, pygame.K_SPACE):
+                            self.audio.play("ui_confirm")
+                            if self._activate_current_menu_option():
+                                events = []
+                        elif event.key == pygame.K_q:
+                            if self.runtime.state in ("title", "paused", "gameover", "victory"):
+                                running = False
+                        continue
 
                     # Gameover or victory → restart
-                    elif event.key == pygame.K_r:
+                    if event.key == pygame.K_r:
                         if self.runtime.state in ("gameover", "victory"):
                             self.audio.play("ui_confirm")
                             self._reset()
-
-                    elif event.key == pygame.K_m:
-                        self.audio.toggle_mute()
-
-                    elif event.key == pygame.K_q:
-                        if self.runtime.state in ("title", "paused", "gameover", "victory"):
-                            running = False
 
 
             self._update_transition()
@@ -413,6 +512,8 @@ class Game:
             #  Draw state overlays 
             if self.runtime.state == "title":
                 self._draw_title_overlay()
+            elif self.runtime.state == "controls":
+                self._draw_controls_overlay()
             elif self.runtime.state == "transition":
                 self._draw_transition_overlay()
             elif self.runtime.state == "paused":
@@ -612,14 +713,35 @@ class Game:
         title = self.font_title.render("INVASION SPACERS", True, (0, 200, 255))
         self.screen.blit(title, title.get_rect(centerx=panel.centerx, top=panel.top + 30))
 
-        sub = self.font_sub.render("Press SPACE to Play", True, (200, 200, 200))
-        self.screen.blit(sub, sub.get_rect(centerx=panel.centerx, top=panel.top + 100))
+        self._draw_menu_options(panel, self.menu_options, self.menu_selected, panel.top + 92)
 
-        hint = self.font.render("Move: Arrows / WASD    Fire: Space / Shift    Pause: P", True, (140, 140, 160))
-        self.screen.blit(hint, hint.get_rect(centerx=panel.centerx, top=panel.top + 150))
+        hint = self.font.render("Menu: Up / Down    Confirm: Enter / Space", True, (140, 140, 160))
+        self.screen.blit(hint, hint.get_rect(centerx=panel.centerx, top=panel.top + 192))
 
         hint2 = self.font.render("M: Mute / Unmute    Q: Quit    F1: Debug", True, (140, 140, 160))
-        self.screen.blit(hint2, hint2.get_rect(centerx=panel.centerx, top=panel.top + 178))
+        self.screen.blit(hint2, hint2.get_rect(centerx=panel.centerx, top=panel.top + 214))
+
+    def _draw_controls_overlay(self) -> None:
+        panel = self._draw_overlay_panel()
+
+        title = self.font_title.render("CONTROLS", True, (240, 240, 240))
+        self.screen.blit(title, title.get_rect(centerx=panel.centerx, top=panel.top + 24))
+
+        lines = [
+            "Move: Arrow Keys / WASD",
+            "Fire: Space / Left Shift / Right Shift",
+            "Pause / Resume: P or ESC",
+            "Mute Audio: M",
+            "Debug Toggle: F1",
+            "Quit from Menus: Q",
+        ]
+
+        for index, line in enumerate(lines):
+            surf = self.font.render(line, True, (210, 210, 210))
+            self.screen.blit(surf, surf.get_rect(centerx=panel.centerx, top=panel.top + 82 + index * 22))
+
+        back = self.font.render("Press ESC, Backspace, or Space to return", True, (180, 180, 180))
+        self.screen.blit(back, back.get_rect(centerx=panel.centerx, top=panel.top + 214))
 
     def _draw_pause_overlay(self) -> None:
         panel = self._draw_overlay_panel()
@@ -627,11 +749,13 @@ class Game:
         paused = self.font_title.render("PAUSED", True, (240, 240, 100))
         self.screen.blit(paused, paused.get_rect(centerx=panel.centerx, top=panel.top + 50))
 
-        resume = self.font_sub.render("Press P or ESC to Resume", True, (200, 200, 200))
-        self.screen.blit(resume, resume.get_rect(centerx=panel.centerx, top=panel.top + 118))
+        self._draw_menu_options(panel, self.pause_options, self.pause_selected, panel.top + 96)
 
-        controls = self.font.render("M: Mute / Unmute    Q: Quit    F1: Debug", True, (180, 180, 180))
-        self.screen.blit(controls, controls.get_rect(centerx=panel.centerx, top=panel.top + 160))
+        controls = self.font.render("Menu: Up / Down    Confirm: Enter / Space", True, (180, 180, 180))
+        self.screen.blit(controls, controls.get_rect(centerx=panel.centerx, top=panel.top + 198))
+
+        hint = self.font.render("ESC or P also resumes    M: Mute    F1: Debug", True, (180, 180, 180))
+        self.screen.blit(hint, hint.get_rect(centerx=panel.centerx, top=panel.top + 220))
 
     def _draw_transition_overlay(self) -> None:
         panel = self._draw_overlay_panel()
@@ -656,11 +780,10 @@ class Game:
         score = self.font_sub.render(f"Final Score: {self.runtime.score}", True, (245, 245, 245))
         self.screen.blit(score, score.get_rect(centerx=panel.centerx, top=panel.top + 100))
 
-        restart = self.font.render("Press R to Restart", True, (230, 230, 230))
-        self.screen.blit(restart, restart.get_rect(centerx=panel.centerx, top=panel.top + 146))
+        self._draw_menu_options(panel, self.end_options, self.gameover_selected, panel.top + 128)
 
-        quit_text = self.font.render("Q: Quit    M: Mute / Unmute    F1: Debug", True, (230, 230, 230))
-        self.screen.blit(quit_text, quit_text.get_rect(centerx=panel.centerx, top=panel.top + 178))
+        quit_text = self.font.render("Menu: Up / Down    Confirm: Enter / Space", True, (230, 230, 230))
+        self.screen.blit(quit_text, quit_text.get_rect(centerx=panel.centerx, top=panel.top + 222))
 
     def _draw_victory_overlay(self) -> None:
         panel = self._draw_overlay_panel()
@@ -671,11 +794,10 @@ class Game:
         score = self.font_sub.render(f"Final Score: {self.runtime.score}", True, (240, 240, 240))
         self.screen.blit(score, score.get_rect(centerx=panel.centerx, top=panel.top + 100))
 
-        restart = self.font.render("Press R to Play Again", True, (180, 180, 180))
-        self.screen.blit(restart, restart.get_rect(centerx=panel.centerx, top=panel.top + 146))
+        self._draw_menu_options(panel, self.end_options, self.victory_selected, panel.top + 138)
 
-        quit_text = self.font.render("Q: Quit    M: Mute / Unmute    F1: Debug", True, (180, 180, 180))
-        self.screen.blit(quit_text, quit_text.get_rect(centerx=panel.centerx, top=panel.top + 178))
+        quit_text = self.font.render("Menu: Up / Down    Confirm: Enter / Space", True, (180, 180, 180))
+        self.screen.blit(quit_text, quit_text.get_rect(centerx=panel.centerx, top=panel.top + 214))
 
     def shutdown(self) -> None:
         self.audio.shutdown()
