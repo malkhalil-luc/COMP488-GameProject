@@ -62,6 +62,7 @@ class Game:
         self.last_audio_state = ""
         self.pending_spawn_sound = ""
         self.show_debug = False
+        self.reduced_flash = False
         self.guard_phase_active = False
         self.menu_options = ["Start Game", "Controls", "Quit"]
         self.menu_selected = 0
@@ -209,7 +210,10 @@ class Game:
 
     def _set_screen_flash(self, color: tuple[int, int, int], timer: int = 10) -> None:
         self.runtime.screen_flash_color = color
-        self.runtime.screen_flash_timer = timer
+        if self.reduced_flash:
+            self.runtime.screen_flash_timer = min(timer, 3)
+        else:
+            self.runtime.screen_flash_timer = timer
 
     def _handle_state_audio(self, force: bool = False) -> None:
         if not force and self.runtime.state == self.last_audio_state:
@@ -231,7 +235,7 @@ class Game:
             return
 
         if self.runtime.state == "victory":
-            self.audio.stop_loop()
+            self.audio.play_loop("ambience")
             self.audio.play("victory")
 
     def _move_menu_selection(self, direction: int) -> None:
@@ -255,6 +259,7 @@ class Game:
                 self.runtime.state = "controls"
                 return False
             if choice == "Quit":
+                pygame.event.post(pygame.event.Event(pygame.QUIT))
                 return False
 
         elif self.runtime.state == "paused":
@@ -267,6 +272,7 @@ class Game:
                 self.runtime.state = "controls"
                 return False
             if choice == "Quit":
+                pygame.event.post(pygame.event.Event(pygame.QUIT))
                 return False
 
         elif self.runtime.state == "gameover":
@@ -279,6 +285,7 @@ class Game:
                 self.runtime.state = "controls"
                 return False
             if choice == "Quit":
+                pygame.event.post(pygame.event.Event(pygame.QUIT))
                 return False
 
         elif self.runtime.state == "victory":
@@ -291,6 +298,7 @@ class Game:
                 self.runtime.state = "controls"
                 return False
             if choice == "Quit":
+                pygame.event.post(pygame.event.Event(pygame.QUIT))
                 return False
 
         return False
@@ -339,9 +347,23 @@ class Game:
                         self.audio.toggle_mute()
                         continue
 
+                    if event.key in (pygame.K_MINUS, pygame.K_KP_MINUS):
+                        self.audio.adjust_volume(-0.05)
+                        continue
+
+                    if event.key in (pygame.K_EQUALS, pygame.K_KP_PLUS):
+                        self.audio.adjust_volume(0.05)
+                        continue
+
+                    if event.key == pygame.K_f:
+                        self.reduced_flash = not self.reduced_flash
+                        continue
+
                     if self.runtime.state == "controls":
                         if event.key in (pygame.K_ESCAPE, pygame.K_BACKSPACE, pygame.K_SPACE, pygame.K_RETURN):
                             self.audio.play("ui_confirm")
+                            if self.controls_return_state in ("gameover", "victory"):
+                                self.last_audio_state = self.controls_return_state
                             self.runtime.state = self.controls_return_state
                         continue
 
@@ -642,6 +664,8 @@ class Game:
             return
 
         alpha = min(120, self.runtime.screen_flash_timer * 10)
+        if self.reduced_flash:
+            alpha = min(36, self.runtime.screen_flash_timer * 8)
         flash = pygame.Surface((SCREEN_WIDTH, SCREEN_HEIGHT), pygame.SRCALPHA)
         flash.fill((*self.runtime.screen_flash_color, alpha))
         self.screen.blit(flash, (0, 0))
@@ -650,8 +674,13 @@ class Game:
         if not self.audio.enabled:
             return "OFF"
         if self.audio.muted:
-            return "MUTED"
-        return "ON"
+            return f"MUTED {self.audio.get_volume_percent()}%"
+        return f"ON {self.audio.get_volume_percent()}%"
+
+    def _get_accessibility_status(self) -> str:
+        if self.reduced_flash:
+            return "Flash: Reduced"
+        return "Flash: Normal"
 
     def _get_powerup_status(self) -> str:
         active = []
@@ -685,7 +714,7 @@ class Game:
             f"Level: {self.current_level_index + 1}   Wave: {wave_text}",
             f"Lives: {self.runtime.lives}   Audio: {self._get_audio_status()}",
             f"Powerups: {self._get_powerup_status()}",
-            "F1 Debug  M Mute  Q Quit",
+            self._get_accessibility_status(),
         ]
 
         y = panel.top + 10
@@ -695,12 +724,12 @@ class Game:
             y += 17
 
 
-    def _draw_overlay_panel(self) -> pygame.Rect:
+    def _draw_overlay_panel(self, height: int = 240) -> pygame.Rect:
         """
         Draw a semi-transparent dark panel in the center of the screen.
         Returns the panel rect so callers can position text inside it.
         """
-        panel = pygame.Rect(SCREEN_WIDTH // 2 - 220, SCREEN_HEIGHT // 2 - 120, 440, 240)
+        panel = pygame.Rect(SCREEN_WIDTH // 2 - 220, SCREEN_HEIGHT // 2 - height // 2, 440, height)
         dark  = pygame.Surface((panel.width, panel.height), pygame.SRCALPHA)
         dark.fill((10, 10, 20, 210))
         self.screen.blit(dark, panel.topleft)
@@ -718,11 +747,11 @@ class Game:
         hint = self.font.render("Menu: Up / Down    Confirm: Enter / Space", True, (140, 140, 160))
         self.screen.blit(hint, hint.get_rect(centerx=panel.centerx, top=panel.top + 192))
 
-        hint2 = self.font.render("M: Mute / Unmute    Q: Quit    F1: Debug", True, (140, 140, 160))
+        hint2 = self.font.render("M: Mute  - / +: Volume  F: Reduced Flash", True, (140, 140, 160))
         self.screen.blit(hint2, hint2.get_rect(centerx=panel.centerx, top=panel.top + 214))
 
     def _draw_controls_overlay(self) -> None:
-        panel = self._draw_overlay_panel()
+        panel = self._draw_overlay_panel(300)
 
         title = self.font_title.render("CONTROLS", True, (240, 240, 240))
         self.screen.blit(title, title.get_rect(centerx=panel.centerx, top=panel.top + 24))
@@ -732,16 +761,18 @@ class Game:
             "Fire: Space / Left Shift / Right Shift",
             "Pause / Resume: P or ESC",
             "Mute Audio: M",
+            "Volume: - / +",
+            "Reduced Flash: F",
             "Debug Toggle: F1",
             "Quit from Menus: Q",
         ]
 
         for index, line in enumerate(lines):
             surf = self.font.render(line, True, (210, 210, 210))
-            self.screen.blit(surf, surf.get_rect(centerx=panel.centerx, top=panel.top + 82 + index * 22))
+            self.screen.blit(surf, surf.get_rect(centerx=panel.centerx, top=panel.top + 78 + index * 22))
 
         back = self.font.render("Press ESC, Backspace, or Space to return", True, (180, 180, 180))
-        self.screen.blit(back, back.get_rect(centerx=panel.centerx, top=panel.top + 214))
+        self.screen.blit(back, back.get_rect(centerx=panel.centerx, top=panel.top + 256))
 
     def _draw_pause_overlay(self) -> None:
         panel = self._draw_overlay_panel()

@@ -34,6 +34,16 @@ class DamageSystem(System):
         # Leader hit cooldown — counts down in frames
         leader_hit_cooldown = kwargs.get("leader_hit_cooldown", 0)
         shield_timer = kwargs.get("shield_timer", 0)
+        powerup_active = False
+
+        tagged_entities = world.get_entities_with(TagComponent)
+        for eid in tagged_entities:
+            tag = world.get_component(eid, TagComponent)
+            if tag is not None and tag.label.startswith("powerup_"):
+                powerup_active = True
+                break
+
+        powerup_dropped = False
 
         for _eid in escaped_enemies:
             lives -= 1
@@ -76,13 +86,21 @@ class DamageSystem(System):
                         (255, 180, 80),
                     )
 
-                if enemy_pos is not None and enemy_tag is not None and enemy_tag.label == "enemy" and random.random() < 0.20:
+                if (
+                    enemy_pos is not None
+                    and enemy_tag is not None
+                    and enemy_tag.label == "enemy"
+                    and not powerup_active
+                    and not powerup_dropped
+                    and random.random() < 0.12
+                ):
                     drop_kind = random.choice([
                         "powerup_life",
                         "powerup_rapid",
                         "powerup_shield",
                     ])
                     create_powerup(world, enemy_pos.x, enemy_pos.y, drop_kind)
+                    powerup_dropped = True
 
             #  bullet × leader 
             elif event_type == "bullet_leader":

@@ -72,7 +72,7 @@ class AudioBank:
             "leader_fire": "leader_fire.wav",
             "hit_enemy": "hit_enemy.wav",
             "player_hurt": "player_hurt.wav",
-            "powerup": "Powerup.wav",
+            "powerup": "powerup.wav",
             "ui_confirm": "ui_confirm.wav",
             "game_over": "game_over.wav",
             "leader_spawn": "leader_spawn.wav",
@@ -112,6 +112,15 @@ class AudioBank:
     def toggle_mute(self) -> None:
         self.muted = not self.muted
         self._apply_volumes()
+
+    def adjust_volume(self, delta: float) -> None:
+        self.music_volume = max(0.0, min(1.0, self.music_volume + delta))
+        self.sfx_volume = max(0.0, min(1.0, self.sfx_volume + delta))
+        self.ui_volume = max(0.0, min(1.0, self.ui_volume + delta))
+        self._apply_volumes()
+
+    def get_volume_percent(self) -> int:
+        return int(round(self.music_volume * 100))
 
     def play(self, name: str) -> None:
         if not self.enabled or self.muted:

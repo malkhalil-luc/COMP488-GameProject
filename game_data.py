@@ -52,7 +52,7 @@ LEVELS = [
     LevelConfig(
         name="Level 1",
         waves=[
-            WaveConfig(2, 6, 18, 18, 0.34, "wide_line", "straight", 1, 160, 4.0, 0),
+            WaveConfig(2, 6, 18, 18, 0.34, "wide_line", "straight", 2, 125, 4.0, 0),
             WaveConfig(3, 6, 16, 16, 0.40, "v_shape", "sway", 1, 140, 4.0, 0),
             WaveConfig(3, 5, 20, 16, 0.46, "staggered_rows", "sway", 2, 125, 4.5, 1),
         ],
