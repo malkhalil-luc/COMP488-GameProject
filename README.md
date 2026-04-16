@@ -9,8 +9,10 @@ Invasion Spacers is a 2D arcade shooter built in Python with Pygame using an ECS
 
 Run in the terminal
 ```
+python3 -m venv .venv
+source .venv/bin/activate
 pip install -r requirements.txt
-python main.py
+python3 main.py
 
 ```
 
@@ -60,3 +62,15 @@ python main.py
 - HUD, boss bar, and transition cues
 - Audio system with music, ambience, and sound effects
 - Debug panel
+
+
+## Credits
+- Sounds
+    - https://app.envato.com
+    - https://pixabay.com/sound-effects/
+    - https://opengameart.org/content/space-sounds
+- Graphics:
+    - https://opengameart.org/content/graphic-fx
+    - https://pngtree.com
+    - https://www.freepik.com
+    - 
