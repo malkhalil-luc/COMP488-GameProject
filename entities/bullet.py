@@ -20,19 +20,10 @@ def create_bullet(
     color: tuple[int, int, int] = COLOR_BULLET,
 ) -> Entity:
     """
-    Build a single bullet entity at the given position.
-
-    Called by ShootingSystem each time the player fires.
-    x, y should be the player's nose position:
-        x = player_pos.x + PLAYER_W // 2 - BULLET_W // 2
-        y = player_pos.y
-
-    Returns:
-        Entity — the bullet's unique ID in the world registry
+    Creates one bullet entity at the given position.
     """
     eid = world.create_entity()
 
-    # Where it spawns 
     world.add_component(eid, PositionComponent(x=x, y=y))
 
     world.add_component(eid, VelocityComponent(
@@ -40,23 +31,19 @@ def create_bullet(
         vy=vy,
     ))
 
-    # What kind of entity this is
     world.add_component(eid, TagComponent(label=label))
 
-    # What it looks like — small yellow rectangle
     world.add_component(eid, SpriteComponent(
         width=BULLET_W,
         height=BULLET_H,
         color=color,
     ))
 
-    # Collision area — matches sprite exactly for bullets
     world.add_component(eid, ColliderComponent(
         width=BULLET_W,
         height=BULLET_H,
     ))
 
-    # Auto-destroy, MovementSystem checks this flag and calls world.remove_entity()
     world.add_component(eid, LifetimeComponent(destroy_when_offscreen=True))
 
     return eid

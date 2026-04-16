@@ -11,11 +11,11 @@ from game_data import DEFAULT_WAVE, DEFAULT_LEADER
 
 class EnemyAISystem(System):
     """
-    Sets enemy and leader velocities each frame.
-    Signals game.py when the wave is cleared.
+    Updates enemy and leader movement for the current frame.
     """
-    def update (self,world,kwargs) -> None:
+    def update(self, world, kwargs) -> None:
         """
+        Moves regular enemies, guard enemies, and the leader.
         """
         if kwargs.get("game_state") != "play":
             return
@@ -65,8 +65,6 @@ class EnemyAISystem(System):
                 enemy_count += 1
 
             elif tag.label == "leader":
-                # Leader move faster — side to side
-                
                 pos = world.get_component(eid, PositionComponent)
 
                 if guard_alive:
@@ -74,18 +72,15 @@ class EnemyAISystem(System):
                     vel.vy = 0.0
                     continue
 
-                # initialise direction on first frame
                 if vel.vx == 0.0 and vel.vy == 0.0:
                     vel.vx = leader_config.speed_x
                     vel.vy = leader_config.speed_y
 
-                # bounce off left and right walls
                 if pos.x <= 0:
                     vel.vx = abs(vel.vx)
                 elif pos.x + leader_config.width >= SCREEN_WIDTH:
                     vel.vx = -abs(vel.vx)
 
-                # bounce off top and bottom of playfield
                 if pos.y <= FIELD_TOP:
                     vel.vy = abs(vel.vy)
                 elif pos.y + leader_config.height >= FIELD_BOTTOM:

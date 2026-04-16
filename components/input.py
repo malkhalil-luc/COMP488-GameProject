@@ -5,7 +5,7 @@ from ecs_core.component import Component
 @dataclass
 class InputComponent(Component):
     """
-    To tag an entity has a input, input system should respond to the input 
+    Marks an entity that should react to player input.
     """
 
     pass

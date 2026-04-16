@@ -6,7 +6,7 @@ from components.tag import TagComponent
 
 def _aabb(pos_a, col_a, pos_b, col_b) -> bool:
     """
-    AABB collision - two rectangles overlap when there is NO gap on ANY axis.
+    Returns True when two rectangles overlap.
     """
     a_left   = pos_a.x
     a_top    = pos_a.y
@@ -27,17 +27,15 @@ def _aabb(pos_a, col_a, pos_b, col_b) -> bool:
 
 class CollisionSystem(System):
     """
-    Detects AABB overlaps between collidable entity pairs.
-    Writes collision events to kwargs for DamageSystem
+    Finds collisions and writes the results into kwargs.
     """
     def update(self, world, kwargs) -> None:
         """
-        Check all meaningful collision pairs and record events.
+        Checks the collision pairs used by the game.
         """
         if kwargs.get("game_state") != "play":
             return
 
-        # events list — DamageSystem uses it
         kwargs["collision_events"] = []
 
         all_collidable = world.get_entities_with(
@@ -65,7 +63,6 @@ class CollisionSystem(System):
                 players.append(eid)
             elif tag.label.startswith("powerup_"):
                 powerups.append(eid)
-        #  Pair 1: bullet × enemy 
         for b_eid in player_bullets:
             b_pos = world.get_component(b_eid, PositionComponent)
             b_col = world.get_component(b_eid, ColliderComponent)
@@ -81,7 +78,6 @@ class CollisionSystem(System):
                         "enemy":  e_eid,
                     })
 
-        #  Pair 2: bullet × leader 
         for b_eid in player_bullets:
             b_pos = world.get_component(b_eid, PositionComponent)
             b_col = world.get_component(b_eid, ColliderComponent)
@@ -97,7 +93,6 @@ class CollisionSystem(System):
                         "leader": l_eid,
                     })
 
-        #  Pair 3: enemy × player 
         for e_eid in enemies:
             e_pos = world.get_component(e_eid, PositionComponent)
             e_col = world.get_component(e_eid, ColliderComponent)
@@ -113,7 +108,6 @@ class CollisionSystem(System):
                         "player": p_eid,
                     })
 
-        # Pair 4: leader × player 
         for l_eid in leaders:
             l_pos = world.get_component(l_eid, PositionComponent)
             l_col = world.get_component(l_eid, ColliderComponent)
@@ -129,7 +123,6 @@ class CollisionSystem(System):
                         "player": p_eid,
                     })
 
-        # Pair 5: enemy bullet × player
         for b_eid in enemy_bullets:
             b_pos = world.get_component(b_eid, PositionComponent)
             b_col = world.get_component(b_eid, ColliderComponent)
@@ -145,7 +138,6 @@ class CollisionSystem(System):
                         "player": p_eid,
                     })
 
-        # Pair 6: player × powerup
         for powerup_eid in powerups:
             pow_pos = world.get_component(powerup_eid, PositionComponent)
             pow_col = world.get_component(powerup_eid, ColliderComponent)

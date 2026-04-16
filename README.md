@@ -1,0 +1,62 @@
+# G3 Assignment: Invasion Spacers Game - Release Candidate
+
+
+## Game Description
+
+Invasion Spacers is a 2D arcade shooter built in Python with Pygame using an ECS architecture. The player controls a ship at the bottom of the screen, clears enemy waves, survives boss-style leader encounters, and progresses through three levels with increasing pressure. 
+
+## How to Run
+
+Run in the terminal
+```
+pip install -r requirements.txt
+python main.py
+
+```
+
+## Controls
+
+### Gameplay
+- A / D or Left / Right: move
+- Space: fire
+- P or Esc: pause/resume
+- M: mute
+- -: volume down
+- = or keypad +: volume up
+- F: reduced flash
+- F1: debug
+### Menus
+- Up / Down or W / S: move selection
+- Enter or Space: confirm
+- Q: quit
+### Controls screen
+- Esc, Backspace, Enter, or Space: return
+
+## Accessibility Options
+
+### Alternate movement controls:
+- A / D
+- Left / Right
+### Alternate menu navigation controls:
+- W / S
+- Up / Down
+- Mute with M
+- Volume control with - and = / keypad +
+- Reduced flash mode with F
+
+## Features:
+- 3 levels
+- 3 waves per level
+- 1 leader fight per level
+- Enemy formations and movement variation
+- Enemy firing and leader firing
+- Leader defense line phase
+
+- Powerups:
+    - extra life
+    - rapid fire
+    - shield
+
+- HUD, boss bar, and transition cues
+- Audio system with music, ambience, and sound effects
+- Debug panel

@@ -1,4 +1,3 @@
-#state machine + orchestration
 import pygame
 from audio import AudioBank
 from game_data import LEVELS
@@ -27,28 +26,22 @@ from components.tag import TagComponent
 
 class Game:
     """
-    Owns the state machine, game variables, world, and frame loop.
-
-    Call game.run() from main.py to start.
+    Runs the game loop and manages the main game states.
     """
 
     def __init__(self) -> None:
-        #  pygame setup 
         self.screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT))
         pygame.display.set_caption(TITLE)
         self.clock = pygame.time.Clock()
 
-        #  fonts 
         self.font       = pygame.font.SysFont(None, FONT_SIZE)
         self.font_title = pygame.font.SysFont(None, FONT_TITLE_SIZE)
         self.font_sub   = pygame.font.SysFont(None, FONT_SUB_SIZE)
         self.audio = AudioBank()
 
-        #  ECS world 
         self.world = World()
         self._register_systems()
 
-        #  runtime game state 
         self.runtime = GameRuntime()
         self.levels = LEVELS
         self.current_level_index = 0
@@ -73,7 +66,6 @@ class Game:
         self.victory_selected = 0
         self.controls_return_state = "title"
 
-        # Entity IDs — stored so game.py can reference them if needed
         self.player_eid  = None
         self.enemy_eids  = []
 
@@ -86,8 +78,7 @@ class Game:
 
     def _register_systems(self) -> None:
         """
-        Register all systems in execution order.
-        Order is critical — see module docstring.
+        Adds the systems to the world in the order they should run.
         """
         self.world.add_system(InputSystem())
         self.world.add_system(FireSystem())
@@ -99,15 +90,7 @@ class Game:
 
     def _reset(self) -> None:
         """
-        Reset all game variables and rebuild the world for a fresh run.
-
-        Called when starting from title screen and on restart from
-        gameover or victory screen.
-
-        Steps:
-            1. Reset score, lives, leader flag
-            2. Clear the entire world (remove all entities)
-            3. Spawn fresh player + enemy formation
+        Resets the game and starts a fresh run.
         """
         self.runtime.reset_run_values()
         self.current_level_index = 0
@@ -117,12 +100,8 @@ class Game:
         self.transition_text = ""
         self.current_wave_config = self.levels[0].waves[0]
         self.current_leader_config = self.levels[0].leader
-
-
-        # clear existing entities from the world
         self.world.clear()
 
-        # Spawn initial entities via factories
         self.player_eid = create_player(self.world)
         self._start_current_wave()
 
@@ -323,21 +302,16 @@ class Game:
 
     def run(self) -> None:
         """
-        Main game loop. Called from main.py.
-        Runs until the player closes the window.
+        Runs the main loop until the player quits.
         """
         running = True
 
         while running:
-            #  Collect events 
             events = pygame.event.get()
 
             for event in events:
                 if event.type == pygame.QUIT:
                     running = False
-
-                #  State machine input (game state transitions)
-                # InputSystem only handles entity velocity
 
                 if event.type == pygame.KEYDOWN:
                     if event.key == pygame.K_F1:
@@ -392,7 +366,6 @@ class Game:
                                 running = False
                         continue
 
-                    # Gameover or victory → restart
                     if event.key == pygame.K_r:
                         if self.runtime.state in ("gameover", "victory"):
                             self.audio.play("ui_confirm")
@@ -404,11 +377,8 @@ class Game:
             if self.runtime.state == "play":
                 self.frame_count += 1
 
-            #  Clear screen 
             self.screen.fill(COLOR_BG)
 
-            # Build kwargs for this dict frame 
-            # Systems read from and write back to this dict.
             fDict_kwargs = {
                 "screen": self.screen,
                 "events": events,
@@ -426,7 +396,6 @@ class Game:
             }
 
 
-            #  Update world (runs all systems in order) 
             self.world.update(fDict_kwargs)
             self.runtime.leader_hit_cooldown = fDict_kwargs.get(
                 "leader_hit_cooldown",
@@ -456,29 +425,22 @@ class Game:
                 if self.runtime.screen_flash_timer > 0:
                     self.runtime.screen_flash_timer -= 1
 
-            ### flash the player sprite when hit
             if fDict_kwargs.get("lives", self.runtime.lives) < self.runtime.lives:
-                self.runtime.player_flash_timer = 60  # 1 second of flashing
+                self.runtime.player_flash_timer = 60
                 self._set_screen_flash((220, 60, 60), 10)
 
             if self.runtime.player_flash_timer > 0:
                 self.runtime.player_flash_timer -= 1
-                # toggle visible every 6 frames — creates a flash effect
                 player_entities = self.world.get_entities_with(InputComponent, SpriteComponent)
                 for eid in player_entities:
                     sprite = self.world.get_component(eid, SpriteComponent)
                     sprite.visible = (self.runtime.player_flash_timer % 6) < 3
             else:
-                # make sure player is always visible when not flashing
                 player_entities = self.world.get_entities_with(InputComponent, SpriteComponent)
                 for eid in player_entities:
                     sprite = self.world.get_component(eid, SpriteComponent)
                     sprite.visible = True
 
-                ###
-
-            #  Read signals written by systems
-            # Score and lives may have been updated by DamageSystem
             self.runtime.score = fDict_kwargs.get("score", self.runtime.score)
             self.runtime.lives = fDict_kwargs.get("lives", self.runtime.lives)
             self.runtime.rapid_fire_timer += fDict_kwargs.get("rapid_fire_bonus", 0)
@@ -513,7 +475,6 @@ class Game:
                     self._set_status_text("LEADER ACTIVE", 90)
                     self._set_screen_flash((255, 170, 80), 10)
 
-            # Wave cleared → spawn the leader
             if fDict_kwargs.get("wave_cleared") and not self.runtime.leader_alive:
                 self._advance_after_wave_clear()
 
@@ -526,12 +487,9 @@ class Game:
             self._handle_state_audio()
 
 
-            #  Draw HUD on top of entities 
-            # RenderSystem drew entities. Now game.py draws UI on top.
             if self.runtime.state in ("play", "paused"):
                 self._draw_hud()
 
-            #  Draw state overlays 
             if self.runtime.state == "title":
                 self._draw_title_overlay()
             elif self.runtime.state == "controls":
@@ -556,12 +514,8 @@ class Game:
 
     def _draw_hud(self) -> None:
         """
-        Draw the HUD strip at the top of the screen.
-        Score on the left, lives on the right.
-        Boss HP bar at the bottom when leader is alive.
+        Draws the top HUD and the boss bar when needed.
         """
-       
-        #  Score (top-left) 
         score_surf = self.font.render(f"Score: {self.runtime.score}", True, (240, 240, 240))
         self.screen.blit(score_surf, score_surf.get_rect(topleft=(12, 14)))
 
@@ -571,12 +525,10 @@ class Game:
         level_surf = self.font.render(level_label, True, (200, 200, 200))
         self.screen.blit(level_surf, level_surf.get_rect(center=(SCREEN_WIDTH // 2, 24)))
 
-        #  Lives (top-right) — shown as heart count  
         for i in range(self.runtime.lives):
             hx = SCREEN_WIDTH - 20 - i * 26
             self.screen.blit(self.heart_img, (hx - 20 , 12))
 
-        # HUD divider line 
         pygame.draw.line(
             self.screen, (60, 60, 80),
             (0, HUD_H - 1), (SCREEN_WIDTH, HUD_H - 1), 2
@@ -604,23 +556,20 @@ class Game:
             status_surf = self.font.render(self.runtime.status_text, True, (255, 230, 140))
             self.screen.blit(status_surf, status_surf.get_rect(center=(SCREEN_WIDTH // 2, HUD_H + 42)))
 
-        #  Boss HP bar (bottom strip — only during leader phase) 
         if self.runtime.leader_alive:
             self._draw_boss_bar()
 
 
     def _draw_boss_bar(self) -> None:
         """
-        Draw the Enemy Leader HP bar at the bottom of the screen.
-        Reads HealthComponent from the leader entity directly.
+        Draws the leader health bar at the bottom of the screen.
         """
         from components.health import HealthComponent
         from components.tag import TagComponent
 
-        # Find the leader entity to read current HP
         leader_entities = self.world.get_entities_with(TagComponent, HealthComponent)
         leader_hp  = 0
-        leader_max = 1  # avoid divide-by-zero
+        leader_max = 1
 
         for eid in leader_entities:
             tag = self.world.get_component(eid, TagComponent)
@@ -630,26 +579,21 @@ class Game:
                 leader_max = health.max_hp
                 break
 
-        # Bar dimensions — centered at the bottom strip
         bar_w   = 300
         bar_h   = 18
         bar_x   = SCREEN_WIDTH // 2 - bar_w // 2
         bar_y   = SCREEN_HEIGHT - BOSS_BAR_H + (BOSS_BAR_H - bar_h) // 2
 
-        # Background track
         track_rect = pygame.Rect(bar_x, bar_y, bar_w, bar_h)
         pygame.draw.rect(self.screen, (60, 20, 20), track_rect)
 
-        # Fill — scales with hp / max_hp
         pct      = leader_hp / leader_max
         fill_w   = int(bar_w * pct)
         fill_rect = pygame.Rect(bar_x, bar_y, fill_w, bar_h)
         pygame.draw.rect(self.screen, COLOR_LEADER, fill_rect)
 
-        # Outline
         pygame.draw.rect(self.screen, (200, 200, 200), track_rect, 2)
 
-        # Label
         label = self.font.render(f"LEADER  {leader_hp}/{leader_max}", True, (240, 240, 240))
         self.screen.blit(label, label.get_rect(
             centerx=SCREEN_WIDTH // 2,
@@ -726,8 +670,7 @@ class Game:
 
     def _draw_overlay_panel(self, height: int = 240) -> pygame.Rect:
         """
-        Draw a semi-transparent dark panel in the center of the screen.
-        Returns the panel rect so callers can position text inside it.
+        Draws the dark panel used by menu and state overlays.
         """
         panel = pygame.Rect(SCREEN_WIDTH // 2 - 220, SCREEN_HEIGHT // 2 - height // 2, 440, height)
         dark  = pygame.Surface((panel.width, panel.height), pygame.SRCALPHA)

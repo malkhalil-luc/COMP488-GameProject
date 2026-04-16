@@ -1,4 +1,3 @@
-# factory: build the enemy entities
 import random
 
 from components.formation import FormationComponent
@@ -134,6 +133,7 @@ def create_enemy_formation(
     wave_config: WaveConfig = DEFAULT_WAVE,
 ) -> list[Entity]:
     """
+    Creates one full enemy wave from the wave config.
     """
     enemy_ids = []
 

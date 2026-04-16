@@ -10,8 +10,7 @@ from entities.bullet import create_bullet
 
 class FireSystem(System):
     """
-    Listens for KEYDOWN Space or Shift and spawns a bullet at the
-    player's nose position.
+    Spawns player bullets, enemy bullets, guard volleys, and leader shots.
     """
 
     def _fire_player_bullet(self, world, events, frame_count, rapid_fire_timer) -> None:
@@ -185,9 +184,7 @@ class FireSystem(System):
 
     def update(self, world, kwargs) -> None:
         """
-        Scan this frame's events for a fire key press.
-        If found, spawn one bullet at the player's nose.
-
+        Handles all shooting for the current frame.
         """
         if kwargs.get("game_state") != "play":
             return

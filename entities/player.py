@@ -1,5 +1,3 @@
-# factory: build the player entity
-
 from config import SCREEN_WIDTH, FIELD_BOTTOM, PLAYER_WIDTH, PLAYER_HEIGHT, PLAYER_SPEED, COLOR_PLAYER, STARTING_LIVES
 from ecs_core.entity import Entity
 from ecs_core.ecs import World
@@ -13,12 +11,13 @@ from components.collider import ColliderComponent
 
 def create_player(world: World) -> Entity:
     """
+    Creates the player entity at the bottom of the play area.
     """
 
     eid = world.create_entity()
 
-    start_x = SCREEN_WIDTH // 2 - PLAYER_WIDTH // 2   # centered horizontally
-    start_y = FIELD_BOTTOM - PLAYER_HEIGHT - 10     # near bottom, 10px margin
+    start_x = SCREEN_WIDTH // 2 - PLAYER_WIDTH // 2
+    start_y = FIELD_BOTTOM - PLAYER_HEIGHT - 10
 
     world.add_component(eid, PositionComponent(
         x=float(start_x),
@@ -26,8 +25,6 @@ def create_player(world: World) -> Entity:
     ))
 
     world.add_component(eid, VelocityComponent(vx=0.0, vy=0.0))
-
-
     world.add_component(eid, InputComponent())
 
     world.add_component(eid, TagComponent(label="player"))

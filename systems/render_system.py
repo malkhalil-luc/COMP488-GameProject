@@ -1,5 +1,3 @@
-# called the last
-
 import pygame
 from ecs_core.system import System
 from components.sprite import SpriteComponent
@@ -9,8 +7,7 @@ from entities.powerup import POWERUP_LETTERS
 
 class RenderSystem(System):
     """
-    Draw any visible entity (visible sprite), as a colored rectangle
-    Reads: position component, sprint component, and runs the last after all state changes
+    Draws visible entities on the screen.
     """
 
     def __init__(self) -> None:
@@ -18,8 +15,7 @@ class RenderSystem(System):
 
     def update(self, world, kwargs)-> None:
         """
-        Draw entities that has position and sprite and are visible
-        kwarge expected: screen: pygame.surface
+        Draws every entity that has a position and a sprite.
         """
 
         screen = kwargs["screen"]
@@ -39,9 +35,8 @@ class RenderSystem(System):
                 pygame.draw.circle(screen, sprite.color, rect.center, max(2, sprite.width // 2))
                 continue
 
-            pygame.draw.rect(screen,sprite.color,rect)
-
             if tag is not None and tag.label.startswith("powerup_"):
+                pygame.draw.rect(screen, sprite.color, rect)
                 pygame.draw.rect(screen,(255,255,255),rect,2)
                 inner_rect = rect.inflate(-6, -6)
                 pygame.draw.rect(screen, (20, 20, 30), inner_rect)
@@ -51,4 +46,5 @@ class RenderSystem(System):
                 screen.blit(label_surf, label_rect)
                 continue
 
+            pygame.draw.rect(screen,sprite.color,rect)
             pygame.draw.rect(screen,(255,255,255),rect,1)

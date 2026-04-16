@@ -6,17 +6,18 @@ from components.input import InputComponent
 
 class InputSystem(System):
     """
+    Reads keyboard input and updates the player velocity.
     """
 
-    def update (self, world, kwargs) -> None:
+    def update(self, world, kwargs) -> None:
         """
+        Handles left and right movement during play.
         """
 
-        #gate, only in play mode
         if kwargs.get("game_state") != "play":
             return
 
-        keys = pygame.key.get_pressed() # real all keyboard state
+        keys = pygame.key.get_pressed()
 
         entities = world.get_entities_with(InputComponent, VelocityComponent)
 
@@ -29,7 +30,7 @@ class InputSystem(System):
                 vel.vx = -PLAYER_SPEED
             elif moving_right and not moving_left:
                 vel.vx = PLAYER_SPEED
-            else: # as if non pressed or pressed together
+            else:
                 vel.vx = 0.0
 
-            vel.vy = 0.0 # can be changed later if vertical movement added.
+            vel.vy = 0.0

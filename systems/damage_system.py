@@ -10,6 +10,9 @@ from entities.powerup import create_powerup
 
 
 class DamageSystem(System):
+    """
+    Applies the results of collisions and updates score, lives, and pickups.
+    """
 
     def update(self, world, kwargs) -> None:
         if kwargs.get("game_state") != "play":
@@ -28,10 +31,8 @@ class DamageSystem(System):
         shield_bonus = 0
         pickup_text = ""
 
-        # Track entities destroyed this frame to prevent double processing
         destroyed = set()
 
-        # Leader hit cooldown — counts down in frames
         leader_hit_cooldown = kwargs.get("leader_hit_cooldown", 0)
         shield_timer = kwargs.get("shield_timer", 0)
         powerup_active = False
@@ -54,7 +55,6 @@ class DamageSystem(System):
         for event in events:
             event_type = event["type"]
 
-            #  bullet × enemy 
             if event_type == "bullet_enemy":
                 bullet_eid = event["bullet"]
                 enemy_eid  = event["enemy"]
@@ -102,7 +102,6 @@ class DamageSystem(System):
                     create_powerup(world, enemy_pos.x, enemy_pos.y, drop_kind)
                     powerup_dropped = True
 
-            #  bullet × leader 
             elif event_type == "bullet_leader":
                 bullet_eid = event["bullet"]
                 leader_eid = event["leader"]
@@ -137,7 +136,6 @@ class DamageSystem(System):
                                 )
                             kwargs["trigger_victory"] = True
 
-            #  enemy × player 
             elif event_type == "enemy_player":
                 enemy_eid  = event["enemy"]
                 player_eid = event["player"]
@@ -145,7 +143,6 @@ class DamageSystem(System):
                 if enemy_eid in destroyed or player_eid in destroyed:
                     continue
 
-                # Enemy destroyed on contact — one touch = one life lost
                 world.remove_entity(enemy_eid)
                 destroyed.add(enemy_eid)
 
@@ -156,14 +153,12 @@ class DamageSystem(System):
                         lives = 0
                         kwargs["trigger_gameover"] = True
 
-            #  leader × player 
             elif event_type == "leader_player":
                 player_eid = event["player"]
 
                 if player_eid in destroyed:
                     continue
 
-                # Only damage if cooldown expired
                 if leader_hit_cooldown > 0 or shield_timer > 0:
                     continue
 
@@ -175,7 +170,6 @@ class DamageSystem(System):
                     lives = 0
                     kwargs["trigger_gameover"] = True
 
-            # enemy bullet × player
             elif event_type == "enemy_bullet_player":
                 bullet_eid = event["bullet"]
 
@@ -215,7 +209,6 @@ class DamageSystem(System):
                     shield_bonus += 300
                     pickup_text = "SHIELD"
 
-        # Write everything back so game.py read it
         kwargs["score"]               = score
         kwargs["lives"]               = lives
         kwargs["leader_hit_cooldown"] = leader_hit_cooldown
