@@ -57,7 +57,7 @@ class CollisionSystem(System):
                 player_bullets.append(eid)
             elif tag.label == "enemy_bullet":
                 enemy_bullets.append(eid)
-            elif tag.label == "enemy":
+            elif tag.label in ("enemy", "leader_guard"):
                 enemies.append(eid)
             elif tag.label == "leader":
                 leaders.append(eid)

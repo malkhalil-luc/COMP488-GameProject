@@ -1,3 +1,6 @@
+import math
+
+from components.formation import FormationComponent
 from ecs_core.system import System
 from components.velocity import VelocityComponent
 from components.tag import TagComponent
@@ -20,17 +23,22 @@ class EnemyAISystem(System):
         wave_config = kwargs.get("wave_config", DEFAULT_WAVE)
         leader_config = kwargs.get("leader_config", DEFAULT_LEADER)
         frame_count = kwargs.get("frame_count", 0)
-        
         enemy_count = 0
+        guard_alive = False
 
         tagged_entities = world.get_entities_with(TagComponent, VelocityComponent)
+
+        for eid in tagged_entities:
+            tag = world.get_component(eid, TagComponent)
+            if tag.label == "leader_guard":
+                guard_alive = True
+                break
 
         for eid in tagged_entities:
             tag = world.get_component(eid, TagComponent)
             vel = world.get_component(eid, VelocityComponent)
 
             if tag.label == "enemy":
-                # Regular enemies move down with a simple pattern
                 if wave_config.move_pattern == "sway":
                     direction = -1 if (frame_count // 45) % 2 == 0 else 1
                     vel.vx = 1.2 * direction
@@ -43,10 +51,28 @@ class EnemyAISystem(System):
                 vel.vy = wave_config.speed
                 enemy_count += 1
 
+            elif tag.label == "leader_guard":
+                pos = world.get_component(eid, PositionComponent)
+                formation = world.get_component(eid, FormationComponent)
+                vel.vx = 0.0
+                vel.vy = 0.0
+                if pos is not None and formation is not None:
+                    offset_x = math.sin(frame_count / 16.0 + formation.col_index * 0.9) * 24
+                    offset_y = math.sin(frame_count / 20.0 + formation.col_index * 0.5) * 10
+                    pos.x = formation.base_x + offset_x
+                    pos.y = formation.base_y + offset_y
+
+                enemy_count += 1
+
             elif tag.label == "leader":
                 # Leader move faster — side to side
                 
                 pos = world.get_component(eid, PositionComponent)
+
+                if guard_alive:
+                    vel.vx = 0.0
+                    vel.vy = 0.0
+                    continue
 
                 # initialise direction on first frame
                 if vel.vx == 0.0 and vel.vy == 0.0:

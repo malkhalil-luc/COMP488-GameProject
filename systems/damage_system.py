@@ -53,12 +53,20 @@ class DamageSystem(System):
                     continue
 
                 enemy_pos = world.get_component(enemy_eid, PositionComponent)
+                enemy_tag = world.get_component(enemy_eid, TagComponent)
+                enemy_health = world.get_component(enemy_eid, HealthComponent)
                 world.remove_entity(bullet_eid)
-                world.remove_entity(enemy_eid)
                 destroyed.add(bullet_eid)
+
+                if enemy_health is not None:
+                    enemy_health.hp -= 1
+                    kwargs["sound_events"].append("hit_enemy")
+                    if enemy_health.hp > 0:
+                        continue
+
+                world.remove_entity(enemy_eid)
                 destroyed.add(enemy_eid)
                 score += SCORE_ENEMY
-                kwargs["sound_events"].append("hit_enemy")
 
                 if enemy_pos is not None:
                     create_burst_effect(
@@ -68,7 +76,7 @@ class DamageSystem(System):
                         (255, 180, 80),
                     )
 
-                if enemy_pos is not None and random.random() < 0.20:
+                if enemy_pos is not None and enemy_tag is not None and enemy_tag.label == "enemy" and random.random() < 0.20:
                     drop_kind = random.choice([
                         "powerup_life",
                         "powerup_rapid",

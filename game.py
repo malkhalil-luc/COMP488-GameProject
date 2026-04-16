@@ -18,7 +18,7 @@ from systems.collision_system import CollisionSystem
 from systems.damage_system import DamageSystem
 from systems.render_system import RenderSystem
 from entities.player import create_player
-from entities.enemy import create_enemy_formation
+from entities.enemy import create_enemy_formation, create_leader_guard_line
 from entities.leader import create_leader
 from components.sprite import SpriteComponent
 from components.input import InputComponent
@@ -151,6 +151,7 @@ class Game:
         level = self.levels[self.current_level_index]
         self.current_leader_config = level.leader
         create_leader(self.world, self.current_leader_config)
+        create_leader_guard_line(self.world)
         self.runtime.leader_alive = True
         self.pending_spawn_sound = "leader_spawn"
         self._start_transition(f"{level.name}  -  Leader", sound_name="level_transition")
@@ -280,6 +281,7 @@ class Game:
                 "game_state": self.runtime.state,
                 "score": self.runtime.score,
                 "lives": self.runtime.lives,
+                "level_index": self.current_level_index,
                 "leader_alive": self.runtime.leader_alive,
                 "leader_hit_cooldown": self.runtime.leader_hit_cooldown,
                 "wave_config": self.current_wave_config,

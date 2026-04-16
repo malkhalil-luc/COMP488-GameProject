@@ -1,5 +1,5 @@
 # factory: build the enemy entities
-
+from components.formation import FormationComponent
 from config import (
     SCREEN_WIDTH,
     FIELD_TOP,
@@ -14,6 +14,7 @@ from components.position import PositionComponent
 from components.velocity import VelocityComponent
 from components.tag import TagComponent
 from components.sprite import SpriteComponent
+from components.health import HealthComponent
 from components.collider import ColliderComponent
 
 
@@ -118,3 +119,41 @@ def create_enemy_formation(
         enemy_ids.append(eid)
 
     return enemy_ids
+
+
+def create_leader_guard_line(world: World, count: int = 5) -> list[Entity]:
+    guard_ids = []
+    gap_x = 18
+    start_y = FIELD_TOP + 96
+    row_w = count * ENEMY_WIDTH + (count - 1) * gap_x
+    start_x = (SCREEN_WIDTH - row_w) // 2
+
+    for col in range(count):
+        x = start_x + col * (ENEMY_WIDTH + gap_x)
+        eid = world.create_entity()
+
+        world.add_component(eid, PositionComponent(x=float(x), y=float(start_y)))
+        world.add_component(eid, VelocityComponent(vx=0.0, vy=0.0))
+        world.add_component(eid, FormationComponent(
+            base_x=float(x),
+            base_y=float(start_y),
+            col_index=col,
+        ))
+        world.add_component(eid, TagComponent(label="leader_guard"))
+        world.add_component(eid, SpriteComponent(
+            width=ENEMY_WIDTH,
+            height=ENEMY_HEIGHT,
+            color=(255, 210, 120),
+        ))
+        world.add_component(eid, HealthComponent(
+            hp=2,
+            max_hp=2,
+        ))
+        world.add_component(eid, ColliderComponent(
+            width=ENEMY_WIDTH,
+            height=ENEMY_HEIGHT,
+        ))
+
+        guard_ids.append(eid)
+
+    return guard_ids
