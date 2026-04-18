@@ -63,6 +63,11 @@ python3 main.py
 - Audio system with music, ambience, and sound effects
 - Debug panel
 
+## Known Issues
+
+- The game still uses simple placeholder-style visuals instead of final sprite art.
+- Late game guard phases may feel a little harder than intended.
+- Powerup drop frequency may still need a little more balancing.
 
 ## Credits
 - Sounds
@@ -73,4 +78,3 @@ python3 main.py
     - https://opengameart.org/content/graphic-fx
     - https://pngtree.com
     - https://www.freepik.com
-    - 
