@@ -216,6 +216,35 @@ class DamageSystem(System):
                     shield_bonus += 300
                     pickup_text = "SHIELD"
 
+            elif event_type == "bullet_powerup":
+                powerup_eid = event["powerup"]
+                bullet_eid = event["bullet"]
+
+                if powerup_eid in destroyed:
+                    continue
+
+                tag = world.get_component(powerup_eid, TagComponent)
+
+                if bullet_eid not in destroyed:
+                    world.remove_entity(bullet_eid)
+                    destroyed.add(bullet_eid)
+
+                world.remove_entity(powerup_eid)
+                destroyed.add(powerup_eid)
+
+                if tag is None:
+                    continue
+
+                if tag.label == "powerup_life":
+                    lives = min(lives + 1, 5)
+                    pickup_text = "EXTRA LIFE"
+                elif tag.label == "powerup_rapid":
+                    rapid_fire_bonus += 360
+                    pickup_text = "RAPID FIRE"
+                elif tag.label == "powerup_shield":
+                    shield_bonus += 300
+                    pickup_text = "SHIELD"
+
         kwargs["score"]               = score
         kwargs["lives"]               = lives
         kwargs["leader_hit_cooldown"] = leader_hit_cooldown

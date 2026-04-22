@@ -1,8 +1,10 @@
 import pygame
 from pathlib import Path
+import random
 from audio import AudioBank
 from game_data import LEVELS
 from game_state import GameRuntime
+from score_store import load_scores, save_score
 from config import (
     SCREEN_WIDTH, SCREEN_HEIGHT, FPS, TITLE,
     HUD_H, BOSS_BAR_H, FIELD_TOP, FIELD_BOTTOM,
@@ -61,7 +63,7 @@ class Game:
         self.menu_options = ["Start Game", "Controls", "Quit"]
         self.menu_selected = 0
         self.pause_options = ["Resume", "Controls", "Quit"]
-        self.end_options = ["Restart", "Controls", "Quit"]
+        self.end_options = ["Save Score", "Restart", "Controls", "Quit"]
         self.pause_selected = 0
         self.gameover_selected = 0
         self.victory_selected = 0
@@ -70,6 +72,8 @@ class Game:
         self.player_eid  = None
         self.enemy_eids  = []
         self.backgrounds = self._load_backgrounds()
+        self.star_layers = self._create_star_layers()
+        self.high_scores = load_scores()
 
 
         self.heart_img = pygame.image.load("assets/sprites/heart.png").convert_alpha()
@@ -109,6 +113,63 @@ class Game:
             "level3": self._load_background("assets/backgrounds/level3_bg.png"),
         }
 
+    def _create_star_layers(self) -> list[list[dict[str, float | tuple[int, int, int]]]]:
+        layers = []
+        layer_specs = [
+            (24, 0.18, (140, 150, 175), 1),
+            (18, 0.34, (190, 200, 220), 2),
+            (12, 0.55, (245, 245, 255), 3),
+        ]
+
+        for count, speed, color, size in layer_specs:
+            stars = []
+            for _ in range(count):
+                stars.append({
+                    "x": float(random.randint(0, SCREEN_WIDTH)),
+                    "y": float(random.randint(0, SCREEN_HEIGHT)),
+                    "speed": speed + random.uniform(-0.05, 0.05),
+                    "size": size,
+                    "color": color,
+                })
+            layers.append(stars)
+
+        return layers
+
+    def _star_speed_scale(self) -> float:
+        if self.runtime.state in ("title", "controls"):
+            return 0.35
+        if self.runtime.state in ("paused", "gameover", "victory"):
+            return 0.25
+
+        level_scales = [0.55, 0.75, 0.95]
+        index = min(self.current_level_index, len(level_scales) - 1)
+        return level_scales[index]
+
+    def _update_star_layers(self) -> None:
+        speed_scale = self._star_speed_scale()
+
+        for stars in self.star_layers:
+            for star in stars:
+                star["y"] += float(star["speed"]) * speed_scale
+                star["x"] += float(star["speed"]) * 0.12 * speed_scale
+
+                if float(star["y"]) > SCREEN_HEIGHT + 4:
+                    star["y"] = -6.0
+                    star["x"] = float(random.randint(0, SCREEN_WIDTH))
+
+                if float(star["x"]) > SCREEN_WIDTH + 4:
+                    star["x"] = -4.0
+
+    def _draw_star_layers(self) -> None:
+        for stars in self.star_layers:
+            for star in stars:
+                pygame.draw.circle(
+                    self.screen,
+                    star["color"],
+                    (int(float(star["x"])), int(float(star["y"]))),
+                    int(star["size"]),
+                )
+
     def _current_player_sprite_path(self) -> str:
         return f"assets/sprites/player_level{self.current_level_index + 1}.png"
 
@@ -130,6 +191,20 @@ class Game:
 
         if background is not None:
             self.screen.blit(background, (0, 0))
+
+        self._draw_star_layers()
+
+    def _prepare_score_entry(self) -> None:
+        self.runtime.score_name_input = ""
+        self.runtime.score_saved = False
+
+    def _save_current_score(self) -> None:
+        if self.runtime.score_saved:
+            return
+
+        self.high_scores = save_score(self.runtime.score_name_input, self.runtime.score)
+        self.runtime.score_saved = True
+        self._set_status_text("SCORE SAVED", 90)
 
     def _reset(self) -> None:
         """
@@ -347,6 +422,9 @@ class Game:
 
         elif self.runtime.state == "gameover":
             choice = self.end_options[self.gameover_selected]
+            if choice == "Save Score":
+                self._save_current_score()
+                return False
             if choice == "Restart":
                 self._reset()
                 return True
@@ -360,6 +438,9 @@ class Game:
 
         elif self.runtime.state == "victory":
             choice = self.end_options[self.victory_selected]
+            if choice == "Save Score":
+                self._save_current_score()
+                return False
             if choice == "Restart":
                 self._reset()
                 return True
@@ -405,6 +486,16 @@ class Game:
                     running = False
 
                 if event.type == pygame.KEYDOWN:
+                    if self.runtime.state in ("gameover", "victory"):
+                        if not self.runtime.score_saved:
+                            if event.key == pygame.K_BACKSPACE:
+                                self.runtime.score_name_input = self.runtime.score_name_input[:-1] or ""
+                                continue
+                            if event.unicode and event.unicode.isalnum():
+                                if len(self.runtime.score_name_input) < 8:
+                                    self.runtime.score_name_input += event.unicode.upper()
+                                continue
+
                     if event.key == pygame.K_F1:
                         self.show_debug = not self.show_debug
 
@@ -479,6 +570,7 @@ class Game:
 
 
             self._update_transition()
+            self._update_star_layers()
 
             if self.runtime.menu_input_lock_timer > 0:
                 self.runtime.menu_input_lock_timer -= 1
@@ -594,9 +686,11 @@ class Game:
             if fDict_kwargs.get("trigger_victory"):
                 self._advance_after_leader_defeat()
                 if self.runtime.state == "victory":
+                    self._prepare_score_entry()
                     self._enter_state("victory", 32)
 
             if fDict_kwargs.get("trigger_gameover"):
+                self._prepare_score_entry()
                 self._enter_state("gameover", 32)
 
             self._handle_state_audio()
@@ -753,9 +847,9 @@ class Game:
         active = []
 
         if self.runtime.rapid_fire_timer > 0:
-            active.append("Rapid")
+            active.append(f"Rapid {self.runtime.rapid_fire_timer / 60:.1f}s")
         if self.runtime.shield_timer > 0:
-            active.append("Shield")
+            active.append(f"Shield {self.runtime.shield_timer / 60:.1f}s")
         if self.runtime.pickup_text_timer > 0 and self.runtime.pickup_text == "EXTRA LIFE":
             active.append("Life +1")
 
@@ -765,7 +859,7 @@ class Game:
         return ", ".join(active)
 
     def _draw_debug_panel(self) -> None:
-        panel = pygame.Rect(10, SCREEN_HEIGHT - 126, 260, 112)
+        panel = pygame.Rect(10, SCREEN_HEIGHT - 168, 280, 154)
         surf = pygame.Surface((panel.width, panel.height), pygame.SRCALPHA)
         surf.fill((8, 8, 18, 190))
         self.screen.blit(surf, panel.topleft)
@@ -781,6 +875,8 @@ class Game:
             f"Level: {self.current_level_index + 1}   Wave: {wave_text}",
             f"Lives: {self.runtime.lives}   Audio: {self._get_audio_status()}",
             f"Powerups: {self._get_powerup_status()}",
+            f"Rapid Left: {self.runtime.rapid_fire_timer / 60:.1f}s",
+            f"Shield Left: {self.runtime.shield_timer / 60:.1f}s",
             self._get_accessibility_status(),
         ]
 
@@ -824,24 +920,39 @@ class Game:
         return panel
 
     def _draw_title_overlay(self) -> None:
-        panel = self._draw_overlay_panel()
+        panel = self._draw_overlay_panel(400)
 
         title = self.font_title.render("INVASION SPACERS", True, (0, 200, 255))
         self.screen.blit(title, title.get_rect(centerx=panel.centerx, top=panel.top + 30))
 
-        self._draw_menu_options(panel, self.menu_options, self.menu_selected, panel.top + 92)
+        self._draw_menu_options(panel, self.menu_options, self.menu_selected, panel.top + 96)
+
+        score_title = self.font.render("Top Scores", True, (220, 220, 220))
+        self.screen.blit(score_title, score_title.get_rect(centerx=panel.centerx, top=panel.top + 216))
+
+        if self.high_scores:
+            for index, item in enumerate(self.high_scores[:5]):
+                line = self.font.render(
+                    f"{index + 1}. {item['name']}  {item['score']}",
+                    True,
+                    (200, 200, 210),
+                )
+                self.screen.blit(line, line.get_rect(centerx=panel.centerx, top=panel.top + 240 + index * 18))
+        else:
+            empty = self.font.render("No scores saved yet", True, (180, 180, 190))
+            self.screen.blit(empty, empty.get_rect(centerx=panel.centerx, top=panel.top + 242))
 
         hint = self.font.render("Menu: Up / Down    Confirm: Enter", True, (140, 140, 160))
-        self.screen.blit(hint, hint.get_rect(centerx=panel.centerx, top=panel.top + 192))
+        self.screen.blit(hint, hint.get_rect(centerx=panel.centerx, top=panel.top + 352))
 
         hint2 = self.font.render("M: Mute  - / +: Volume  F: Reduced Flash", True, (140, 140, 160))
-        self.screen.blit(hint2, hint2.get_rect(centerx=panel.centerx, top=panel.top + 214))
+        self.screen.blit(hint2, hint2.get_rect(centerx=panel.centerx, top=panel.top + 372))
 
     def _draw_controls_overlay(self) -> None:
-        panel = self._draw_overlay_panel(300)
+        panel = self._draw_overlay_panel(330)
 
         title = self.font_title.render("CONTROLS", True, (240, 240, 240))
-        self.screen.blit(title, title.get_rect(centerx=panel.centerx, top=panel.top + 24))
+        self.screen.blit(title, title.get_rect(centerx=panel.centerx, top=panel.top + 30))
 
         lines = [
             "Move: Arrow Keys / WASD",
@@ -856,36 +967,36 @@ class Game:
 
         for index, line in enumerate(lines):
             surf = self.font.render(line, True, (210, 210, 210))
-            self.screen.blit(surf, surf.get_rect(centerx=panel.centerx, top=panel.top + 78 + index * 22))
+            self.screen.blit(surf, surf.get_rect(centerx=panel.centerx, top=panel.top + 86 + index * 22))
 
         back = self.font.render("Press ESC, Backspace, or Enter to return", True, (180, 180, 180))
-        self.screen.blit(back, back.get_rect(centerx=panel.centerx, top=panel.top + 256))
+        self.screen.blit(back, back.get_rect(centerx=panel.centerx, top=panel.top + 286))
 
     def _draw_pause_overlay(self) -> None:
-        panel = self._draw_overlay_panel()
+        panel = self._draw_overlay_panel(300)
 
         paused = self.font_title.render("PAUSED", True, (240, 240, 100))
-        self.screen.blit(paused, paused.get_rect(centerx=panel.centerx, top=panel.top + 50))
+        self.screen.blit(paused, paused.get_rect(centerx=panel.centerx, top=panel.top + 30))
 
-        self._draw_menu_options(panel, self.pause_options, self.pause_selected, panel.top + 96)
+        self._draw_menu_options(panel, self.pause_options, self.pause_selected, panel.top + 98)
 
         controls = self.font.render("Menu: Up / Down    Confirm: Enter", True, (180, 180, 180))
-        self.screen.blit(controls, controls.get_rect(centerx=panel.centerx, top=panel.top + 198))
+        self.screen.blit(controls, controls.get_rect(centerx=panel.centerx, top=panel.top + 244))
 
         hint = self.font.render("ESC or P also resumes    M: Mute    F1: Debug", True, (180, 180, 180))
-        self.screen.blit(hint, hint.get_rect(centerx=panel.centerx, top=panel.top + 220))
+        self.screen.blit(hint, hint.get_rect(centerx=panel.centerx, top=panel.top + 266))
 
     def _draw_transition_overlay(self) -> None:
-        panel = self._draw_overlay_panel()
+        panel = self._draw_overlay_panel(250)
 
         title = self.font_title.render(self.transition_text, True, (240, 240, 240))
-        self.screen.blit(title, title.get_rect(centerx=panel.centerx, top=panel.top + 55))
+        self.screen.blit(title, title.get_rect(centerx=panel.centerx, top=panel.top + 42))
 
         ready = self.font_sub.render("Get Ready", True, (200, 200, 120))
-        self.screen.blit(ready, ready.get_rect(centerx=panel.centerx, top=panel.top + 130))
+        self.screen.blit(ready, ready.get_rect(centerx=panel.centerx, top=panel.top + 116))
 
     def _draw_gameover_overlay(self) -> None:
-        panel = self._draw_overlay_panel()
+        panel = self._draw_overlay_panel(420)
 
         tint = pygame.Surface((panel.width, panel.height), pygame.SRCALPHA)
         tint.fill((90, 20, 20, 70))
@@ -896,26 +1007,52 @@ class Game:
         self.screen.blit(title, title.get_rect(centerx=panel.centerx, top=panel.top + 30))
 
         score = self.font_sub.render(f"Final Score: {self.runtime.score}", True, (245, 245, 245))
-        self.screen.blit(score, score.get_rect(centerx=panel.centerx, top=panel.top + 100))
+        self.screen.blit(score, score.get_rect(centerx=panel.centerx, top=panel.top + 98))
 
-        self._draw_menu_options(panel, self.end_options, self.gameover_selected, panel.top + 128)
+        name_box = pygame.Rect(panel.centerx - 110, panel.top + 140, 220, 28)
+        pygame.draw.rect(self.screen, (22, 26, 40), name_box)
+        pygame.draw.rect(self.screen, (150, 150, 190), name_box, 2)
+
+        typed_name = self.runtime.score_name_input or "TYPE NAME"
+        name_color = (240, 240, 240) if self.runtime.score_name_input else (150, 150, 165)
+        name_text = self.font.render(typed_name, True, name_color)
+        self.screen.blit(name_text, name_text.get_rect(center=name_box.center))
+
+        save_text = "Saved" if self.runtime.score_saved else "Type your name, then choose Save Score"
+        save_hint = self.font.render(save_text, True, (220, 220, 220))
+        self.screen.blit(save_hint, save_hint.get_rect(centerx=panel.centerx, top=panel.top + 182))
+
+        self._draw_menu_options(panel, self.end_options, self.gameover_selected, panel.top + 238)
 
         quit_text = self.font.render("Menu: Up / Down    Confirm: Enter", True, (230, 230, 230))
-        self.screen.blit(quit_text, quit_text.get_rect(centerx=panel.centerx, top=panel.top + 222))
+        self.screen.blit(quit_text, quit_text.get_rect(centerx=panel.centerx, top=panel.top + 384))
 
     def _draw_victory_overlay(self) -> None:
-        panel = self._draw_overlay_panel()
+        panel = self._draw_overlay_panel(420)
 
         title = self.font_title.render("VICTORY!", True, (100, 220, 100))
         self.screen.blit(title, title.get_rect(centerx=panel.centerx, top=panel.top + 30))
 
         score = self.font_sub.render(f"Final Score: {self.runtime.score}", True, (240, 240, 240))
-        self.screen.blit(score, score.get_rect(centerx=panel.centerx, top=panel.top + 100))
+        self.screen.blit(score, score.get_rect(centerx=panel.centerx, top=panel.top + 98))
 
-        self._draw_menu_options(panel, self.end_options, self.victory_selected, panel.top + 126)
+        name_box = pygame.Rect(panel.centerx - 110, panel.top + 140, 220, 28)
+        pygame.draw.rect(self.screen, (22, 26, 40), name_box)
+        pygame.draw.rect(self.screen, (150, 150, 190), name_box, 2)
+
+        typed_name = self.runtime.score_name_input or "TYPE NAME"
+        name_color = (240, 240, 240) if self.runtime.score_name_input else (150, 150, 165)
+        name_text = self.font.render(typed_name, True, name_color)
+        self.screen.blit(name_text, name_text.get_rect(center=name_box.center))
+
+        save_text = "Saved" if self.runtime.score_saved else "Type your name, then choose Save Score"
+        save_hint = self.font.render(save_text, True, (220, 220, 220))
+        self.screen.blit(save_hint, save_hint.get_rect(centerx=panel.centerx, top=panel.top + 182))
+
+        self._draw_menu_options(panel, self.end_options, self.victory_selected, panel.top + 238)
 
         quit_text = self.font.render("Menu: Up / Down    Confirm: Enter", True, (180, 180, 180))
-        self.screen.blit(quit_text, quit_text.get_rect(centerx=panel.centerx, top=panel.top + 224))
+        self.screen.blit(quit_text, quit_text.get_rect(centerx=panel.centerx, top=panel.top + 384))
 
     def shutdown(self) -> None:
         self.audio.shutdown()

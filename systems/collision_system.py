@@ -146,6 +146,17 @@ class CollisionSystem(System):
             pow_pos = world.get_component(powerup_eid, PositionComponent)
             pow_col = world.get_component(powerup_eid, ColliderComponent)
 
+            for b_eid in player_bullets:
+                b_pos = world.get_component(b_eid, PositionComponent)
+                b_col = world.get_component(b_eid, ColliderComponent)
+
+                if _aabb(pow_pos, pow_col, b_pos, b_col):
+                    kwargs["collision_events"].append({
+                        "type": "bullet_powerup",
+                        "powerup": powerup_eid,
+                        "bullet": b_eid,
+                    })
+
             for p_eid in players:
                 p_pos = world.get_component(p_eid, PositionComponent)
                 p_col = world.get_component(p_eid, ColliderComponent)

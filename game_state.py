@@ -21,6 +21,8 @@ class GameRuntime:
     screen_flash_color: tuple[int, int, int] = (255, 255, 255)
     menu_input_lock_timer: int = 0
     menu_confirm_ready: bool = True
+    score_name_input: str = ""
+    score_saved: bool = False
 
     def reset_run_values(self) -> None:
         self.score = 0
@@ -38,3 +40,5 @@ class GameRuntime:
         self.screen_flash_color = (255, 255, 255)
         self.menu_input_lock_timer = 0
         self.menu_confirm_ready = True
+        self.score_name_input = ""
+        self.score_saved = False
