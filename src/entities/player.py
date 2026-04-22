@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from config import SCREEN_WIDTH, FIELD_BOTTOM, PLAYER_WIDTH, PLAYER_HEIGHT, PLAYER_SPEED, COLOR_PLAYER, STARTING_LIVES
 from ecs_core.entity import Entity
 from ecs_core.ecs import World

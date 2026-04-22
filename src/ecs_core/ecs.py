@@ -1,4 +1,6 @@
 
+from __future__ import annotations
+
 
 from ecs_core.entity import Entity
 from ecs_core.component import Component

@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import pygame
 from pathlib import Path
 from ecs_core.system import System

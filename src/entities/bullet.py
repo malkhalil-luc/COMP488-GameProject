@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from config import BULLET_W, BULLET_H, BULLET_SPEED, COLOR_BULLET
 from ecs_core.entity import Entity
 from ecs_core.ecs import World

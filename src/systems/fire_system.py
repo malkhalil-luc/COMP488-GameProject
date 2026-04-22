@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import pygame
 from components.entry import EntryComponent
 from config import PLAYER_WIDTH, BULLET_W, COLOR_ENEMY, COLOR_LEADER
