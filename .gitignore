@@ -1,4 +1,4 @@
-#mac
+# mac
 .DS_Store
 .AppleDouble
 .LSOverride
@@ -7,12 +7,12 @@ Icon?
 .Spotlight-V100
 .Trashes
 
-#python
+# python
 __pycache__/
 *.py[cod]
 *$py.class
 
-#py env
+# py env
 venv/
 env/
 ENV/
@@ -25,7 +25,7 @@ ENV/
 *.tmp
 *.bak
 
-#logs
+# logs
 *.log
 htmlcov/
 .coverage
@@ -35,7 +35,7 @@ htmlcov/
 nosetests.xml
 coverage.xml
 
-#build + pkg
+# build + pkg
 build/
 dist/
 develop-eggs/
@@ -48,15 +48,11 @@ MANIFEST
 *.spec
 *.manifest
 
+# local save data
+scores.json
+
 STR.md
 off-doc.md
-<<<<<<< HEAD
 entities.md
 systems.md
 topics.md
-=======
-topics.md
-
-systems.md
-entities.md
->>>>>>> feat/render

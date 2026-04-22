@@ -14,6 +14,21 @@ class DamageSystem(System):
     Applies the results of collisions and updates score, lives, and pickups.
     """
 
+    def _give_powerup(
+        self,
+        label: str,
+        lives: int,
+        rapid_fire_bonus: int,
+        shield_bonus: int,
+    ) -> tuple[int, int, int, str]:
+        if label == "powerup_life":
+            return min(lives + 1, 5), rapid_fire_bonus, shield_bonus, "EXTRA LIFE"
+        if label == "powerup_rapid":
+            return lives, rapid_fire_bonus + 360, shield_bonus, "RAPID FIRE"
+        if label == "powerup_shield":
+            return lives, rapid_fire_bonus, shield_bonus + 300, "SHIELD"
+        return lives, rapid_fire_bonus, shield_bonus, ""
+
     def update(self, world, kwargs) -> None:
         if kwargs.get("game_state") != "play":
             return
@@ -206,15 +221,12 @@ class DamageSystem(System):
                 if tag is None:
                     continue
 
-                if tag.label == "powerup_life":
-                    lives = min(lives + 1, 5)
-                    pickup_text = "EXTRA LIFE"
-                elif tag.label == "powerup_rapid":
-                    rapid_fire_bonus += 360
-                    pickup_text = "RAPID FIRE"
-                elif tag.label == "powerup_shield":
-                    shield_bonus += 300
-                    pickup_text = "SHIELD"
+                lives, rapid_fire_bonus, shield_bonus, pickup_text = self._give_powerup(
+                    tag.label,
+                    lives,
+                    rapid_fire_bonus,
+                    shield_bonus,
+                )
 
             elif event_type == "bullet_powerup":
                 powerup_eid = event["powerup"]
@@ -235,15 +247,12 @@ class DamageSystem(System):
                 if tag is None:
                     continue
 
-                if tag.label == "powerup_life":
-                    lives = min(lives + 1, 5)
-                    pickup_text = "EXTRA LIFE"
-                elif tag.label == "powerup_rapid":
-                    rapid_fire_bonus += 360
-                    pickup_text = "RAPID FIRE"
-                elif tag.label == "powerup_shield":
-                    shield_bonus += 300
-                    pickup_text = "SHIELD"
+                lives, rapid_fire_bonus, shield_bonus, pickup_text = self._give_powerup(
+                    tag.label,
+                    lives,
+                    rapid_fire_bonus,
+                    shield_bonus,
+                )
 
         kwargs["score"]               = score
         kwargs["lives"]               = lives
