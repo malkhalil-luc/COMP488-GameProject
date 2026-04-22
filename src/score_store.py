@@ -2,7 +2,7 @@ import json
 from pathlib import Path
 
 
-SCORES_FILE = Path(__file__).resolve().parent / "scores.json"
+SCORES_FILE = Path(__file__).resolve().parent.parent / "scores.json"
 
 
 def load_scores() -> list[dict[str, int | str]]:

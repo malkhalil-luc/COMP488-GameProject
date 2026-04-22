@@ -70,7 +70,7 @@ class AudioBank:
             self.enabled = False
 
     def _load_sounds(self) -> None:
-        sounds_dir = Path(__file__).resolve().parent / "assets" / "sounds"
+        sounds_dir = Path(__file__).resolve().parent.parent / "assets" / "sounds"
 
         sound_files = {
             "fire": "fire.wav",
