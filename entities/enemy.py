@@ -1,5 +1,6 @@
 import random
 
+from components.entry import EntryComponent
 from components.formation import FormationComponent
 from config import (
     SCREEN_WIDTH,
@@ -17,6 +18,14 @@ from components.tag import TagComponent
 from components.sprite import SpriteComponent
 from components.health import HealthComponent
 from components.collider import ColliderComponent
+
+
+def _enemy_sprite_path(level_index: int) -> str:
+    return f"assets/sprites/enemy_level{level_index + 1}.png"
+
+
+def _guard_sprite_path(level_index: int) -> str:
+    return f"assets/sprites/leader_line_level{level_index + 1}.png"
 
 
 def _add_row_positions(
@@ -131,22 +140,41 @@ def _apply_holes(
 def create_enemy_formation(
     world: World,
     wave_config: WaveConfig = DEFAULT_WAVE,
+    level_index: int = 0,
 ) -> list[Entity]:
     """
     Creates one full enemy wave from the wave config.
     """
     enemy_ids = []
 
-    for x, y in _build_wave_positions(wave_config):
+    for index, (x, y) in enumerate(_build_wave_positions(wave_config)):
+        target_x = x + random.uniform(-8, 8)
+        target_y = y + random.uniform(-4, 4)
+        spawn_x, spawn_y = _pick_entry_spawn(target_x, target_y)
         eid = world.create_entity()
 
-        world.add_component(eid, PositionComponent(x=x, y=y))
+        world.add_component(eid, PositionComponent(x=spawn_x, y=spawn_y))
         world.add_component(eid, VelocityComponent(vx=0.0, vy=0.0))
+        world.add_component(eid, FormationComponent(
+            base_x=target_x,
+            base_y=target_y,
+            col_index=index,
+        ))
+        world.add_component(eid, EntryComponent(
+            active=True,
+            speed=random.uniform(1.3, 4.8),
+            delay=random.randint(0, 30),
+        ))
         world.add_component(eid, TagComponent(label="enemy"))
         world.add_component(eid, SpriteComponent(
             width=ENEMY_WIDTH,
             height=ENEMY_HEIGHT,
             color=COLOR_ENEMY,
+            image_path=_enemy_sprite_path(level_index),
+        ))
+        world.add_component(eid, HealthComponent(
+            hp=wave_config.enemy_hp,
+            max_hp=wave_config.enemy_hp,
         ))
         world.add_component(eid, ColliderComponent(
             width=ENEMY_WIDTH,
@@ -158,7 +186,29 @@ def create_enemy_formation(
     return enemy_ids
 
 
-def create_leader_guard_line(world: World, count: int = 5) -> list[Entity]:
+def _pick_entry_spawn(target_x: float, target_y: float) -> tuple[float, float]:
+    side = random.choice(["top", "left", "right"])
+    playfield_top = FIELD_TOP + 2
+
+    if side == "left":
+        return (
+            float(-ENEMY_WIDTH - random.randint(90, 240)),
+            float(playfield_top + random.randint(72, 230)),
+        )
+
+    if side == "right":
+        return (
+            float(SCREEN_WIDTH + random.randint(90, 240)),
+            float(playfield_top + random.randint(72, 230)),
+        )
+
+    return (
+        float(target_x + random.randint(-220, 220)),
+        float(FIELD_TOP - ENEMY_HEIGHT - random.randint(24, 140)),
+    )
+
+
+def create_leader_guard_line(world: World, level_index: int = 0, count: int = 5) -> list[Entity]:
     guard_ids = []
     gap_x = 18
     start_y = FIELD_TOP + 96
@@ -181,6 +231,7 @@ def create_leader_guard_line(world: World, count: int = 5) -> list[Entity]:
             width=ENEMY_WIDTH,
             height=ENEMY_HEIGHT,
             color=(255, 210, 120),
+            image_path=_guard_sprite_path(level_index),
         ))
         world.add_component(eid, HealthComponent(
             hp=2,

@@ -9,7 +9,8 @@ from components.sprite import SpriteComponent
 from components.health import HealthComponent
 from components.collider import ColliderComponent
 
-def create_player(world: World) -> Entity:
+
+def create_player(world: World, sprite_path: str | None = None) -> Entity:
     """
     Creates the player entity at the bottom of the play area.
     """
@@ -33,6 +34,7 @@ def create_player(world: World) -> Entity:
         width=PLAYER_WIDTH,
         height=PLAYER_HEIGHT,
         color=COLOR_PLAYER,
+        image_path=sprite_path,
     ))
 
     world.add_component(eid, HealthComponent(
@@ -41,8 +43,8 @@ def create_player(world: World) -> Entity:
     ))
 
     world.add_component(eid, ColliderComponent(
-        width=PLAYER_WIDTH - 8,
-        height=PLAYER_HEIGHT - 6,
+        width=PLAYER_WIDTH - 2,
+        height=PLAYER_HEIGHT - 2,
     ))
 
     return eid

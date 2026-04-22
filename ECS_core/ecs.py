@@ -10,6 +10,7 @@ class World:
 
     def __init__(self) -> None:
         self._entities: dict[Entity, dict[type, Component]] = {}
+        self._entities_by_component: dict[type, set[Entity]] = {}
         self._systems: list[System] = []
         self._next_id: int = 0
 
@@ -29,13 +30,22 @@ class World:
         """
         Removes an entity and all of its components.
         """
-        self._entities.pop(entity, None)
+        components = self._entities.pop(entity, None)
+        if components is None:
+            return
+
+        for component_type in components:
+            entity_set = self._entities_by_component.get(component_type)
+            if entity_set is not None:
+                entity_set.discard(entity)
 
     def add_component(self, entity: Entity, component: Component) -> None:
         """
         Adds one component to an entity.
         """
-        self._entities[entity][type(component)] = component
+        component_type = type(component)
+        self._entities[entity][component_type] = component
+        self._entities_by_component.setdefault(component_type, set()).add(entity)
 
     def get_component(self, entity: Entity, component_type: type) -> Component | None:
         """
@@ -55,12 +65,20 @@ class World:
         """
         Returns all entities that have every listed component type.
         """
-        result = []
-        for entity, components in self._entities.items():
-            if all(ct in components for ct in component_type):
-                result.append(entity)
-        
-        return result
+        if not component_type:
+            return list(self._entities.keys())
+
+        first_set = self._entities_by_component.get(component_type[0], set())
+        if not first_set:
+            return []
+
+        result = set(first_set)
+        for ct in component_type[1:]:
+            result &= self._entities_by_component.get(ct, set())
+            if not result:
+                return []
+
+        return list(result)
 
     def add_system(self, system: System) -> None:
         """
@@ -79,4 +97,5 @@ class World:
 
     def clear(self) -> None:
         self._entities.clear()
+        self._entities_by_component.clear()
         self._next_id = 0

@@ -12,4 +12,5 @@ class SpriteComponent(Component):
     width: int
     height: int
     color: Tuple[int,int,int]
+    image_path: str | None = None
     visible: bool = field(default=True)

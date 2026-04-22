@@ -23,6 +23,7 @@ class WaveConfig:
     speed: float
     formation: str = "grid"
     move_pattern: str = "straight"
+    enemy_hp: int = 1
     shooter_count: int = 1
     fire_delay: int = 150
     bullet_speed: float = 4.0
@@ -39,6 +40,7 @@ class LeaderConfig:
     fire_delay: int = 90
     bullet_speed: float = 5.0
     shot_count: int = 1
+    move_pattern: str = "sweep"
 
 
 @dataclass
@@ -52,29 +54,29 @@ LEVELS = [
     LevelConfig(
         name="Level 1",
         waves=[
-            WaveConfig(2, 6, 18, 18, 0.34, "wide_line", "straight", 2, 125, 4.0, 0),
-            WaveConfig(3, 6, 16, 16, 0.40, "v_shape", "sway", 1, 140, 4.0, 0),
-            WaveConfig(3, 5, 20, 16, 0.46, "staggered_rows", "sway", 2, 125, 4.5, 1),
+            WaveConfig(2, 6, 18, 18, 0.95, "wide_line", "drifter", 1, 2, 130, 4.0, 0),
+            WaveConfig(3, 6, 16, 16, 1.10, "v_shape", "swarm", 1, 1, 140, 4.0, 0),
+            WaveConfig(3, 5, 20, 16, 1.25, "staggered_rows", "shooter", 1, 2, 125, 4.5, 1),
         ],
-        leader=LeaderConfig(LEADER_WIDTH, LEADER_HEIGHT, LEADER_HP + 1, 3.0, 1.5, 80, 5.0, 1),
+        leader=LeaderConfig(LEADER_WIDTH, LEADER_HEIGHT, LEADER_HP + 1, 3.0, 1.5, 80, 5.0, 1, "sweep"),
     ),
     LevelConfig(
         name="Level 2",
         waves=[
-            WaveConfig(3, 6, 18, 18, 0.48, "split_groups", "straight", 2, 115, 4.7, 1),
-            WaveConfig(3, 6, 16, 18, 0.54, "v_shape", "zigzag", 2, 100, 5.0, 2),
-            WaveConfig(3, 6, 16, 16, 0.60, "staggered_rows", "zigzag", 3, 90, 5.2, 2),
+            WaveConfig(3, 6, 18, 18, 1.35, "split_groups", "swarm", 1, 2, 115, 4.7, 1),
+            WaveConfig(3, 6, 16, 18, 1.50, "v_shape", "shooter", 1, 2, 100, 5.0, 2),
+            WaveConfig(3, 6, 16, 16, 1.65, "staggered_rows", "shooter", 1, 3, 90, 5.2, 2),
         ],
-        leader=LeaderConfig(LEADER_WIDTH + 8, LEADER_HEIGHT + 6, LEADER_HP + 2, 3.6, 1.8, 68, 5.4, 3),
+        leader=LeaderConfig(LEADER_WIDTH + 8, LEADER_HEIGHT + 6, LEADER_HP + 2, 3.6, 1.8, 68, 5.4, 3, "weave"),
     ),
     LevelConfig(
         name="Level 3",
         waves=[
-            WaveConfig(3, 7, 14, 16, 0.62, "split_groups", "sway", 3, 85, 5.4, 2),
-            WaveConfig(3, 7, 14, 16, 0.68, "v_shape", "zigzag", 4, 78, 5.8, 3),
-            WaveConfig(3, 7, 14, 14, 0.74, "staggered_rows", "zigzag", 4, 72, 6.0, 3),
+            WaveConfig(3, 7, 14, 16, 1.75, "split_groups", "swarm", 1, 3, 85, 5.4, 2),
+            WaveConfig(3, 7, 14, 16, 1.95, "v_shape", "shooter", 1, 4, 78, 5.8, 3),
+            WaveConfig(3, 7, 14, 14, 1.80, "staggered_rows", "tank", 2, 3, 96, 5.4, 3),
         ],
-        leader=LeaderConfig(LEADER_WIDTH + 12, LEADER_HEIGHT + 10, LEADER_HP + 4, 4.2, 2.2, 56, 6.2, 3),
+        leader=LeaderConfig(LEADER_WIDTH + 12, LEADER_HEIGHT + 10, LEADER_HP + 4, 4.2, 2.2, 56, 6.2, 3, "hunter"),
     ),
 ]
 

@@ -1,4 +1,5 @@
 import pygame
+from components.entry import EntryComponent
 from config import PLAYER_WIDTH, BULLET_W, COLOR_ENEMY, COLOR_LEADER
 from ecs_core.system import System
 from components.position import PositionComponent
@@ -13,7 +14,55 @@ class FireSystem(System):
     Spawns player bullets, enemy bullets, guard volleys, and leader shots.
     """
 
-    def _fire_player_bullet(self, world, events, frame_count, rapid_fire_timer) -> None:
+    def _player_bullet_image(self, level_index: int) -> str:
+        return f"assets/sprites/player_fire_level{level_index + 1}.png"
+
+    def _enemy_bullet_image(self, level_index: int) -> str:
+        return f"assets/sprites/enemy_fire_level{level_index + 1}.png"
+
+    def _leader_bullet_image(self, level_index: int) -> str:
+        return f"assets/sprites/line_fire_level{level_index + 1}.png"
+
+    def _get_player_center(self, world):
+        player_entities = world.get_entities_with(InputComponent, PositionComponent)
+        for eid in player_entities:
+            pos = world.get_component(eid, PositionComponent)
+            return (pos.x + PLAYER_WIDTH // 2, pos.y + 16)
+        return None
+
+    def _spawn_targeted_bullet(
+        self,
+        world,
+        bullet_x,
+        bullet_y,
+        speed,
+        color,
+        player_center,
+        image_path: str | None = None,
+        vx_offset: float = 0.0,
+    ) -> None:
+        bullet_vx = vx_offset
+        bullet_vy = speed
+
+        if player_center is not None:
+            dx = player_center[0] - bullet_x
+            dy = max(40, player_center[1] - bullet_y)
+            length = max((dx * dx + dy * dy) ** 0.5, 0.01)
+            bullet_vx = dx / length * speed + vx_offset
+            bullet_vy = dy / length * speed
+
+        create_bullet(
+            world,
+            bullet_x,
+            bullet_y,
+            vx=bullet_vx,
+            vy=bullet_vy,
+            label="enemy_bullet",
+            color=color,
+            image_path=image_path,
+        )
+
+    def _fire_player_bullet(self, world, events, frame_count, rapid_fire_timer, level_index) -> None:
         keys = pygame.key.get_pressed()
         holding_fire = keys[pygame.K_SPACE] or keys[pygame.K_LSHIFT] or keys[pygame.K_RSHIFT]
 
@@ -39,49 +88,89 @@ class FireSystem(System):
             pos = world.get_component(eid, PositionComponent)
             bullet_x = pos.x + PLAYER_WIDTH // 2 - BULLET_W // 2
             bullet_y = pos.y
-            create_bullet(world, bullet_x, bullet_y)
+            create_bullet(
+                world,
+                bullet_x,
+                bullet_y,
+                image_path=self._player_bullet_image(level_index),
+            )
             return True
 
         return False
 
-    def _fire_enemy_bullets(self, world, wave_config, frame_count) -> None:
+    def _fire_enemy_bullets(self, world, wave_config, frame_count, level_index) -> None:
         if wave_config.fire_delay <= 0 or frame_count == 0:
             return
 
         if frame_count % wave_config.fire_delay != 0:
             return
 
+        player_center = self._get_player_center(world)
+
         enemy_entities = world.get_entities_with(TagComponent, PositionComponent, SpriteComponent)
         shooters = []
         for eid in enemy_entities:
             tag = world.get_component(eid, TagComponent)
             if tag.label == "enemy":
+                entry = world.get_component(eid, EntryComponent)
+                if entry is not None and entry.active:
+                    continue
                 shooters.append(eid)
 
         if not shooters:
             return False
 
-        shooters.sort(key=lambda eid: world.get_component(eid, PositionComponent).x)
-        shot_count = min(wave_config.shooter_count, len(shooters))
-        start_index = (frame_count // wave_config.fire_delay) % len(shooters)
+        if player_center is not None:
+            def shooter_score(eid):
+                pos = world.get_component(eid, PositionComponent)
+                sprite = world.get_component(eid, SpriteComponent)
+                center_x = pos.x + sprite.width / 2
+                return (abs(center_x - player_center[0]), -pos.y)
 
-        for offset in range(shot_count):
-            eid = shooters[(start_index + offset) % len(shooters)]
+            shooters.sort(key=shooter_score)
+        else:
+            shooters.sort(key=lambda eid: world.get_component(eid, PositionComponent).x)
+
+        shot_count = min(wave_config.shooter_count, len(shooters))
+        shooter_ids = shooters[:shot_count]
+
+        for eid in shooter_ids:
             pos = world.get_component(eid, PositionComponent)
             sprite = world.get_component(eid, SpriteComponent)
             bullet_x = pos.x + sprite.width // 2 - BULLET_W // 2
             bullet_y = pos.y + sprite.height
+
+            bullet_vx = 0.0
+            bullet_vy = wave_config.bullet_speed
+            pattern = wave_config.move_pattern
+
+            if player_center is not None and pattern in ("swarm", "shooter", "tank"):
+                dx = player_center[0] - (pos.x + sprite.width / 2)
+                dy = max(40, player_center[1] - (pos.y + sprite.height))
+
+                if pattern in ("shooter", "tank"):
+                    length = max((dx * dx + dy * dy) ** 0.5, 0.01)
+                    bullet_vx = dx / length * wave_config.bullet_speed
+                    bullet_vy = dy / length * wave_config.bullet_speed
+                    if pattern == "tank":
+                        bullet_vx *= 0.75
+                        bullet_vy *= 0.92
+                else:
+                    bullet_vx = max(-1.0, min(1.0, dx / 120.0)) * 0.9
+
             create_bullet(
                 world,
                 bullet_x,
                 bullet_y,
-                vy=wave_config.bullet_speed,
+                vx=bullet_vx,
+                vy=bullet_vy,
                 label="enemy_bullet",
                 color=COLOR_ENEMY,
+                image_path=self._enemy_bullet_image(level_index),
             )
         return True
 
-    def _fire_guard_bullets(self, world, frame_count, level_index) -> None:
+    def _fire_guard_bullets(self, world, frame_count, level_index, player_center) -> None:
         if frame_count == 0 or frame_count % 78 != 0:
             return False
 
@@ -123,18 +212,19 @@ class FireSystem(System):
             bullet_y = pos.y + sprite.height
 
             for vx, vy in bullet_pattern:
-                create_bullet(
+                self._spawn_targeted_bullet(
                     world,
                     bullet_x,
                     bullet_y,
-                    vx=vx,
-                    vy=vy,
-                    label="enemy_bullet",
-                    color=COLOR_LEADER,
+                    vy,
+                    COLOR_LEADER,
+                    player_center,
+                    image_path=self._leader_bullet_image(level_index),
+                    vx_offset=vx,
                 )
         return True
 
-    def _fire_leader_bullets(self, world, leader_config, frame_count) -> None:
+    def _fire_leader_bullets(self, world, leader_config, frame_count, player_center, level_index) -> None:
         if leader_config.fire_delay <= 0 or frame_count == 0:
             return
 
@@ -160,23 +250,25 @@ class FireSystem(System):
 
             if leader_config.shot_count >= 3:
                 for vx in (-1.5, 0.0, 1.5):
-                    create_bullet(
+                    self._spawn_targeted_bullet(
                         world,
                         bullet_x,
                         bullet_y,
-                        vx=vx,
-                        vy=leader_config.bullet_speed,
-                        label="enemy_bullet",
-                        color=COLOR_LEADER,
+                        leader_config.bullet_speed,
+                        COLOR_LEADER,
+                        player_center,
+                        image_path=self._leader_bullet_image(level_index),
+                        vx_offset=vx,
                     )
             else:
-                create_bullet(
+                self._spawn_targeted_bullet(
                     world,
                     bullet_x,
                     bullet_y,
-                    vy=leader_config.bullet_speed,
-                    label="enemy_bullet",
-                    color=COLOR_LEADER,
+                    leader_config.bullet_speed,
+                    COLOR_LEADER,
+                    player_center,
+                    image_path=self._leader_bullet_image(level_index),
                 )
             return True
 
@@ -195,18 +287,19 @@ class FireSystem(System):
         wave_config = kwargs.get("wave_config")
         leader_config = kwargs.get("leader_config")
         rapid_fire_timer = kwargs.get("rapid_fire_timer", 0)
+        player_center = self._get_player_center(world)
         kwargs["sound_events"] = kwargs.get("sound_events", [])
 
-        if self._fire_player_bullet(world, events, frame_count, rapid_fire_timer):
+        if self._fire_player_bullet(world, events, frame_count, rapid_fire_timer, level_index):
             kwargs["sound_events"].append("fire")
 
         if wave_config is not None:
-            if self._fire_enemy_bullets(world, wave_config, frame_count):
+            if self._fire_enemy_bullets(world, wave_config, frame_count, level_index):
                 kwargs["sound_events"].append("enemy_fire")
 
-        if self._fire_guard_bullets(world, frame_count, level_index):
+        if self._fire_guard_bullets(world, frame_count, level_index, player_center):
             kwargs["sound_events"].append("leader_fire")
 
         if leader_config is not None:
-            if self._fire_leader_bullets(world, leader_config, frame_count):
+            if self._fire_leader_bullets(world, leader_config, frame_count, player_center, level_index):
                 kwargs["sound_events"].append("leader_fire")

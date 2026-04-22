@@ -61,6 +61,6 @@ class MovementSystem(System):
 
             pos = world.get_component(eid, PositionComponent)
             sprite = world.get_component(eid, SpriteComponent)
-            if pos.y > FIELD_BOTTOM or pos.y + sprite.height > FIELD_BOTTOM:
+            if pos.y > FIELD_BOTTOM + 80:
                 world.remove_entity(eid)
                 kwargs["escaped_enemies"].append(eid)

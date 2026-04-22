@@ -8,11 +8,17 @@ from components.tag import TagComponent
 from components.sprite import SpriteComponent
 from components.health import HealthComponent
 from components.collider import ColliderComponent
+from components.leader_move import LeaderMoveComponent
+
+
+def _leader_sprite_path(level_index: int) -> str:
+    return f"assets/sprites/leader_level{level_index + 1}.png"
 
 
 def create_leader(
     world: World,
     leader_config: LeaderConfig = DEFAULT_LEADER,
+    level_index: int = 0,
 ) -> Entity:
     """
     Creates the leader for the current level.
@@ -28,6 +34,11 @@ def create_leader(
     ))
 
     world.add_component(eid, VelocityComponent(vx=0.0, vy=0.0))
+    world.add_component(eid, LeaderMoveComponent(
+        target_x=float(start_x),
+        target_y=float(start_y),
+        timer=1,
+    ))
 
     world.add_component(eid, TagComponent(label="leader"))
 
@@ -35,6 +46,7 @@ def create_leader(
         width=leader_config.width,
         height=leader_config.height,
         color=COLOR_LEADER,
+        image_path=_leader_sprite_path(level_index),
     ))
 
     world.add_component(eid, HealthComponent(

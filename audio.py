@@ -16,6 +16,9 @@ class AudioBank:
         self._loop_channel: pygame.mixer.Channel | None = None
         self._ui_channel: pygame.mixer.Channel | None = None
         self._alert_channel: pygame.mixer.Channel | None = None
+        self._fire_channel: pygame.mixer.Channel | None = None
+        self._enemy_channel: pygame.mixer.Channel | None = None
+        self._hit_channel: pygame.mixer.Channel | None = None
         self._last_play_ms: dict[str, int] = {}
         self._cooldowns_ms = {
             "fire": 70,
@@ -34,15 +37,15 @@ class AudioBank:
         self._sound_multipliers = {
             "ambience": 0.95,
             "bg_loop": 1.0,
-            "fire": 0.42,
-            "enemy_fire": 0.28,
-            "leader_fire": 0.38,
-            "hit_enemy": 0.62,
+            "fire": 0.34,
+            "enemy_fire": 0.16,
+            "leader_fire": 0.24,
+            "hit_enemy": 0.50,
             "player_hurt": 0.82,
             "powerup": 0.62,
             "ui_confirm": 0.80,
             "game_over": 1.00,
-            "leader_spawn": 0.82,
+            "leader_spawn": 0.98,
             "level_transition": 0.72,
             "in_level": 0.62,
             "victory": 0.95,
@@ -50,13 +53,16 @@ class AudioBank:
 
         try:
             if pygame.mixer.get_init() is None:
-                pygame.mixer.init(frequency=44100, size=-16, channels=2, buffer=256)
+                pygame.mixer.init(frequency=44100, size=-16, channels=2, buffer=512)
 
-            pygame.mixer.set_num_channels(12)
-            pygame.mixer.set_reserved(4)
+            pygame.mixer.set_num_channels(20)
+            pygame.mixer.set_reserved(6)
             self._loop_channel = pygame.mixer.Channel(0)
             self._ui_channel = pygame.mixer.Channel(1)
             self._alert_channel = pygame.mixer.Channel(2)
+            self._fire_channel = pygame.mixer.Channel(3)
+            self._enemy_channel = pygame.mixer.Channel(4)
+            self._hit_channel = pygame.mixer.Channel(5)
             self._load_sounds()
             self._apply_volumes()
             self.enabled = True
@@ -98,6 +104,12 @@ class AudioBank:
             self._ui_channel.set_volume(0.0 if self.muted else self.ui_volume)
         if self._alert_channel is not None:
             self._alert_channel.set_volume(0.0 if self.muted else self.sfx_volume)
+        if self._fire_channel is not None:
+            self._fire_channel.set_volume(0.0 if self.muted else self.sfx_volume * 0.85)
+        if self._enemy_channel is not None:
+            self._enemy_channel.set_volume(0.0 if self.muted else self.sfx_volume * 0.72)
+        if self._hit_channel is not None:
+            self._hit_channel.set_volume(0.0 if self.muted else self.sfx_volume * 0.80)
 
         for key, sound in self._sounds.items():
             if key in ("bg_loop", "ambience"):
@@ -145,7 +157,24 @@ class AudioBank:
             self._alert_channel.play(sound)
             return
 
-        sound.play()
+        if name == "fire" and self._fire_channel is not None:
+            if not self._fire_channel.get_busy():
+                self._fire_channel.play(sound)
+            return
+
+        if name in ("enemy_fire", "leader_fire") and self._enemy_channel is not None:
+            if not self._enemy_channel.get_busy():
+                self._enemy_channel.play(sound)
+            return
+
+        if name == "hit_enemy" and self._hit_channel is not None:
+            if not self._hit_channel.get_busy():
+                self._hit_channel.play(sound)
+            return
+
+        channel = pygame.mixer.find_channel()
+        if channel is not None:
+            channel.play(sound)
 
     def play_loop(self, name: str) -> None:
         if not self.enabled or self._loop_channel is None:
@@ -175,3 +204,9 @@ class AudioBank:
             self._ui_channel.stop()
         if self._alert_channel is not None:
             self._alert_channel.stop()
+        if self._fire_channel is not None:
+            self._fire_channel.stop()
+        if self._enemy_channel is not None:
+            self._enemy_channel.stop()
+        if self._hit_channel is not None:
+            self._hit_channel.stop()

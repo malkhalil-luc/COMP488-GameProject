@@ -38,11 +38,13 @@ class DamageSystem(System):
         powerup_active = False
 
         tagged_entities = world.get_entities_with(TagComponent)
+        guard_alive = False
         for eid in tagged_entities:
             tag = world.get_component(eid, TagComponent)
+            if tag is not None and tag.label == "leader_guard":
+                guard_alive = True
             if tag is not None and tag.label.startswith("powerup_"):
                 powerup_active = True
-                break
 
         powerup_dropped = False
 
@@ -107,6 +109,11 @@ class DamageSystem(System):
                 leader_eid = event["leader"]
 
                 if bullet_eid in destroyed:
+                    continue
+
+                if guard_alive:
+                    world.remove_entity(bullet_eid)
+                    destroyed.add(bullet_eid)
                     continue
 
                 world.remove_entity(bullet_eid)

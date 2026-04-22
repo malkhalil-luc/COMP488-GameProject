@@ -1,4 +1,5 @@
 import pygame
+from pathlib import Path
 from audio import AudioBank
 from game_data import LEVELS
 from game_state import GameRuntime
@@ -68,6 +69,7 @@ class Game:
 
         self.player_eid  = None
         self.enemy_eids  = []
+        self.backgrounds = self._load_backgrounds()
 
 
         self.heart_img = pygame.image.load("assets/sprites/heart.png").convert_alpha()
@@ -88,6 +90,47 @@ class Game:
         self.world.add_system(DamageSystem())
         self.world.add_system(RenderSystem())
 
+    def _load_background(self, path: str) -> pygame.Surface | None:
+        file_path = Path(path)
+        if not file_path.exists():
+            return None
+
+        try:
+            image = pygame.image.load(str(file_path)).convert()
+            return pygame.transform.smoothscale(image, (SCREEN_WIDTH, SCREEN_HEIGHT))
+        except pygame.error:
+            return None
+
+    def _load_backgrounds(self) -> dict[str, pygame.Surface | None]:
+        return {
+            "menu": self._load_background("assets/backgrounds/menu_bg.png"),
+            "level1": self._load_background("assets/backgrounds/level1_bg.png"),
+            "level2": self._load_background("assets/backgrounds/level2_bg.png"),
+            "level3": self._load_background("assets/backgrounds/level3_bg.png"),
+        }
+
+    def _current_player_sprite_path(self) -> str:
+        return f"assets/sprites/player_level{self.current_level_index + 1}.png"
+
+    def _update_player_sprite(self) -> None:
+        if self.player_eid is None:
+            return
+
+        sprite = self.world.get_component(self.player_eid, SpriteComponent)
+        if sprite is not None:
+            sprite.image_path = self._current_player_sprite_path()
+
+    def _draw_background(self) -> None:
+        background = None
+
+        if self.runtime.state in ("title", "controls"):
+            background = self.backgrounds.get("menu")
+        else:
+            background = self.backgrounds.get(f"level{self.current_level_index + 1}")
+
+        if background is not None:
+            self.screen.blit(background, (0, 0))
+
     def _reset(self) -> None:
         """
         Resets the game and starts a fresh run.
@@ -102,7 +145,7 @@ class Game:
         self.current_leader_config = self.levels[0].leader
         self.world.clear()
 
-        self.player_eid = create_player(self.world)
+        self.player_eid = create_player(self.world, self._current_player_sprite_path())
         self._start_current_wave()
 
     def _clear_non_player_entities(self) -> None:
@@ -127,7 +170,12 @@ class Game:
         self.current_leader_config = level.leader
         self.runtime.leader_alive = False
         self.guard_phase_active = False
-        self.enemy_eids = create_enemy_formation(self.world, self.current_wave_config)
+        self._update_player_sprite()
+        self.enemy_eids = create_enemy_formation(
+            self.world,
+            self.current_wave_config,
+            self.current_level_index,
+        )
         transition_sound = "level_transition"
         if self.current_wave_index > 0:
             transition_sound = "in_level"
@@ -140,8 +188,9 @@ class Game:
         self._clear_non_player_entities()
         level = self.levels[self.current_level_index]
         self.current_leader_config = level.leader
-        create_leader(self.world, self.current_leader_config)
-        create_leader_guard_line(self.world)
+        self._update_player_sprite()
+        create_leader(self.world, self.current_leader_config, self.current_level_index)
+        create_leader_guard_line(self.world, self.current_level_index)
         self.runtime.leader_alive = True
         self.guard_phase_active = True
         self.pending_spawn_sound = "leader_spawn"
@@ -194,6 +243,23 @@ class Game:
         else:
             self.runtime.screen_flash_timer = timer
 
+    def _lock_menu_input(self, frames: int = 16) -> None:
+        self.runtime.menu_input_lock_timer = frames
+        self.runtime.menu_confirm_ready = False
+
+    def _enter_state(self, new_state: str, lock_frames: int = 0) -> None:
+        self.runtime.state = new_state
+
+        if new_state == "paused":
+            self.pause_selected = 0
+        elif new_state == "gameover":
+            self.gameover_selected = 0
+        elif new_state == "victory":
+            self.victory_selected = 0
+
+        if new_state in ("title", "controls", "paused", "gameover", "victory"):
+            self._lock_menu_input(lock_frames)
+
     def _handle_state_audio(self, force: bool = False) -> None:
         if not force and self.runtime.state == self.last_audio_state:
             return
@@ -217,6 +283,31 @@ class Game:
             self.audio.play_loop("ambience")
             self.audio.play("victory")
 
+    def _play_frame_sounds(self, sound_events: list[str]) -> None:
+        played_counts: dict[str, int] = {}
+        caps = {
+            "fire": 1,
+            "enemy_fire": 1,
+            "leader_fire": 1,
+            "hit_enemy": 2,
+            "player_hurt": 1,
+            "powerup": 1,
+            "ui_confirm": 1,
+            "leader_spawn": 1,
+            "level_transition": 1,
+            "in_level": 1,
+            "game_over": 1,
+            "victory": 1,
+        }
+
+        for sound_name in sound_events:
+            count = played_counts.get(sound_name, 0)
+            if count >= caps.get(sound_name, 1):
+                continue
+
+            self.audio.play(sound_name)
+            played_counts[sound_name] = count + 1
+
     def _move_menu_selection(self, direction: int) -> None:
         if self.runtime.state == "title":
             self.menu_selected = (self.menu_selected + direction) % len(self.menu_options)
@@ -235,7 +326,7 @@ class Game:
                 return True
             if choice == "Controls":
                 self.controls_return_state = "title"
-                self.runtime.state = "controls"
+                self._enter_state("controls", 8)
                 return False
             if choice == "Quit":
                 pygame.event.post(pygame.event.Event(pygame.QUIT))
@@ -248,7 +339,7 @@ class Game:
                 return False
             if choice == "Controls":
                 self.controls_return_state = "paused"
-                self.runtime.state = "controls"
+                self._enter_state("controls", 8)
                 return False
             if choice == "Quit":
                 pygame.event.post(pygame.event.Event(pygame.QUIT))
@@ -261,7 +352,7 @@ class Game:
                 return True
             if choice == "Controls":
                 self.controls_return_state = "gameover"
-                self.runtime.state = "controls"
+                self._enter_state("controls", 8)
                 return False
             if choice == "Quit":
                 pygame.event.post(pygame.event.Event(pygame.QUIT))
@@ -274,7 +365,7 @@ class Game:
                 return True
             if choice == "Controls":
                 self.controls_return_state = "victory"
-                self.runtime.state = "controls"
+                self._enter_state("controls", 8)
                 return False
             if choice == "Quit":
                 pygame.event.post(pygame.event.Event(pygame.QUIT))
@@ -334,50 +425,73 @@ class Game:
                         continue
 
                     if self.runtime.state == "controls":
-                        if event.key in (pygame.K_ESCAPE, pygame.K_BACKSPACE, pygame.K_SPACE, pygame.K_RETURN):
+                        if self.runtime.menu_input_lock_timer > 0:
+                            continue
+                        if event.key in (pygame.K_ESCAPE, pygame.K_BACKSPACE):
                             self.audio.play("ui_confirm")
                             if self.controls_return_state in ("gameover", "victory"):
                                 self.last_audio_state = self.controls_return_state
-                            self.runtime.state = self.controls_return_state
+                            self._enter_state(self.controls_return_state, 10)
+                        elif event.key == pygame.K_RETURN:
+                            if not self.runtime.menu_confirm_ready:
+                                continue
+                            self.audio.play("ui_confirm")
+                            if self.controls_return_state in ("gameover", "victory"):
+                                self.last_audio_state = self.controls_return_state
+                            self._enter_state(self.controls_return_state, 10)
+                            self.runtime.menu_confirm_ready = False
                         continue
 
                     if event.key in (pygame.K_p, pygame.K_ESCAPE):
                         if self.runtime.state == "play":
-                            self.runtime.state = "paused"
-                            self.pause_selected = 0
+                            self._enter_state("paused", 10)
                             continue
                         if self.runtime.state == "paused":
                             self.runtime.state = "play"
                             continue
 
+                    if event.key == pygame.K_r:
+                        if self.runtime.state in ("gameover", "victory"):
+                            self.audio.play("ui_confirm")
+                            self._reset()
+                            continue
+
                     if self.runtime.state in ("title", "paused", "gameover", "victory"):
+                        if self.runtime.menu_input_lock_timer > 0:
+                            continue
                         if event.key in (pygame.K_UP, pygame.K_w):
                             self._move_menu_selection(-1)
                             self.audio.play("ui_confirm")
                         elif event.key in (pygame.K_DOWN, pygame.K_s):
                             self._move_menu_selection(1)
                             self.audio.play("ui_confirm")
-                        elif event.key in (pygame.K_RETURN, pygame.K_SPACE):
+                        elif event.key == pygame.K_RETURN:
+                            if not self.runtime.menu_confirm_ready:
+                                continue
                             self.audio.play("ui_confirm")
                             if self._activate_current_menu_option():
                                 events = []
+                            self.runtime.menu_confirm_ready = False
                         elif event.key == pygame.K_q:
                             if self.runtime.state in ("title", "paused", "gameover", "victory"):
                                 running = False
                         continue
 
-                    if event.key == pygame.K_r:
-                        if self.runtime.state in ("gameover", "victory"):
-                            self.audio.play("ui_confirm")
-                            self._reset()
-
 
             self._update_transition()
+
+            if self.runtime.menu_input_lock_timer > 0:
+                self.runtime.menu_input_lock_timer -= 1
+
+            pressed = pygame.key.get_pressed()
+            if not (pressed[pygame.K_SPACE] or pressed[pygame.K_RETURN]):
+                self.runtime.menu_confirm_ready = True
 
             if self.runtime.state == "play":
                 self.frame_count += 1
 
             self.screen.fill(COLOR_BG)
+            self._draw_background()
 
             fDict_kwargs = {
                 "screen": self.screen,
@@ -459,8 +573,7 @@ class Game:
                     self._set_screen_flash((80, 220, 120), 8)
                 self.last_pickup_text = new_pickup_text
 
-            for sound_name in fDict_kwargs.get("sound_events", []):
-                self.audio.play(sound_name)
+            self._play_frame_sounds(fDict_kwargs.get("sound_events", []))
 
             if self.guard_phase_active:
                 tagged_entities = self.world.get_entities_with(TagComponent)
@@ -480,9 +593,11 @@ class Game:
 
             if fDict_kwargs.get("trigger_victory"):
                 self._advance_after_leader_defeat()
+                if self.runtime.state == "victory":
+                    self._enter_state("victory", 32)
 
             if fDict_kwargs.get("trigger_gameover"):
-                self.runtime.state = "gameover"
+                self._enter_state("gameover", 32)
 
             self._handle_state_audio()
 
@@ -549,12 +664,20 @@ class Game:
         self.screen.blit(audio_surf, audio_surf.get_rect(topright=(SCREEN_WIDTH - 12, 36)))
 
         if self.runtime.pickup_text_timer > 0 and self.runtime.pickup_text:
-            pickup_surf = self.font.render(self.runtime.pickup_text, True, (240, 240, 240))
-            self.screen.blit(pickup_surf, pickup_surf.get_rect(center=(SCREEN_WIDTH // 2, HUD_H + 18)))
+            self._draw_attention_banner(
+                self.runtime.pickup_text,
+                (235, 245, 255),
+                (70, 120, 180),
+                HUD_H + 8,
+            )
 
         if self.runtime.status_text_timer > 0 and self.runtime.status_text:
-            status_surf = self.font.render(self.runtime.status_text, True, (255, 230, 140))
-            self.screen.blit(status_surf, status_surf.get_rect(center=(SCREEN_WIDTH // 2, HUD_H + 42)))
+            self._draw_attention_banner(
+                self.runtime.status_text,
+                (255, 245, 170),
+                (160, 120, 40),
+                HUD_H + 44,
+            )
 
         if self.runtime.leader_alive:
             self._draw_boss_bar()
@@ -667,6 +790,27 @@ class Game:
             self.screen.blit(text, (panel.left + 10, y))
             y += 17
 
+    def _draw_attention_banner(
+        self,
+        text: str,
+        text_color: tuple[int, int, int],
+        border_color: tuple[int, int, int],
+        top_y: int,
+    ) -> None:
+        banner = pygame.Rect(SCREEN_WIDTH // 2 - 140, top_y, 280, 28)
+        shade = pygame.Surface((banner.width, banner.height), pygame.SRCALPHA)
+        shade.fill((12, 16, 26, 210))
+        self.screen.blit(shade, banner.topleft)
+        pygame.draw.rect(self.screen, border_color, banner, 2)
+
+        shadow = self.font.render(text, True, (20, 20, 20))
+        shadow_rect = shadow.get_rect(center=(banner.centerx + 1, banner.centery + 1))
+        self.screen.blit(shadow, shadow_rect)
+
+        surf = self.font.render(text, True, text_color)
+        rect = surf.get_rect(center=banner.center)
+        self.screen.blit(surf, rect)
+
 
     def _draw_overlay_panel(self, height: int = 240) -> pygame.Rect:
         """
@@ -687,7 +831,7 @@ class Game:
 
         self._draw_menu_options(panel, self.menu_options, self.menu_selected, panel.top + 92)
 
-        hint = self.font.render("Menu: Up / Down    Confirm: Enter / Space", True, (140, 140, 160))
+        hint = self.font.render("Menu: Up / Down    Confirm: Enter", True, (140, 140, 160))
         self.screen.blit(hint, hint.get_rect(centerx=panel.centerx, top=panel.top + 192))
 
         hint2 = self.font.render("M: Mute  - / +: Volume  F: Reduced Flash", True, (140, 140, 160))
@@ -714,7 +858,7 @@ class Game:
             surf = self.font.render(line, True, (210, 210, 210))
             self.screen.blit(surf, surf.get_rect(centerx=panel.centerx, top=panel.top + 78 + index * 22))
 
-        back = self.font.render("Press ESC, Backspace, or Space to return", True, (180, 180, 180))
+        back = self.font.render("Press ESC, Backspace, or Enter to return", True, (180, 180, 180))
         self.screen.blit(back, back.get_rect(centerx=panel.centerx, top=panel.top + 256))
 
     def _draw_pause_overlay(self) -> None:
@@ -725,7 +869,7 @@ class Game:
 
         self._draw_menu_options(panel, self.pause_options, self.pause_selected, panel.top + 96)
 
-        controls = self.font.render("Menu: Up / Down    Confirm: Enter / Space", True, (180, 180, 180))
+        controls = self.font.render("Menu: Up / Down    Confirm: Enter", True, (180, 180, 180))
         self.screen.blit(controls, controls.get_rect(centerx=panel.centerx, top=panel.top + 198))
 
         hint = self.font.render("ESC or P also resumes    M: Mute    F1: Debug", True, (180, 180, 180))
@@ -756,7 +900,7 @@ class Game:
 
         self._draw_menu_options(panel, self.end_options, self.gameover_selected, panel.top + 128)
 
-        quit_text = self.font.render("Menu: Up / Down    Confirm: Enter / Space", True, (230, 230, 230))
+        quit_text = self.font.render("Menu: Up / Down    Confirm: Enter", True, (230, 230, 230))
         self.screen.blit(quit_text, quit_text.get_rect(centerx=panel.centerx, top=panel.top + 222))
 
     def _draw_victory_overlay(self) -> None:
@@ -768,10 +912,10 @@ class Game:
         score = self.font_sub.render(f"Final Score: {self.runtime.score}", True, (240, 240, 240))
         self.screen.blit(score, score.get_rect(centerx=panel.centerx, top=panel.top + 100))
 
-        self._draw_menu_options(panel, self.end_options, self.victory_selected, panel.top + 138)
+        self._draw_menu_options(panel, self.end_options, self.victory_selected, panel.top + 126)
 
-        quit_text = self.font.render("Menu: Up / Down    Confirm: Enter / Space", True, (180, 180, 180))
-        self.screen.blit(quit_text, quit_text.get_rect(centerx=panel.centerx, top=panel.top + 214))
+        quit_text = self.font.render("Menu: Up / Down    Confirm: Enter", True, (180, 180, 180))
+        self.screen.blit(quit_text, quit_text.get_rect(centerx=panel.centerx, top=panel.top + 224))
 
     def shutdown(self) -> None:
         self.audio.shutdown()

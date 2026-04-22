@@ -22,6 +22,12 @@ POWERUP_LETTERS = {
     "powerup_shield": "S",
 }
 
+POWERUP_IMAGES = {
+    "powerup_life": "assets/sprites/powerup_life.png",
+    "powerup_rapid": "assets/sprites/powerup_rapid.png",
+    "powerup_shield": "assets/sprites/powerup_shield.png",
+}
+
 
 def create_powerup(world: World, x: float, y: float, kind: str) -> Entity:
     eid = world.create_entity()
@@ -33,6 +39,7 @@ def create_powerup(world: World, x: float, y: float, kind: str) -> Entity:
         width=POWERUP_SIZE,
         height=POWERUP_SIZE,
         color=POWERUP_COLORS.get(kind, (200, 200, 200)),
+        image_path=POWERUP_IMAGES.get(kind),
     ))
     world.add_component(eid, ColliderComponent(
         width=POWERUP_SIZE,

@@ -18,6 +18,7 @@ def create_bullet(
     vy: float = -BULLET_SPEED,
     label: str = "player_bullet",
     color: tuple[int, int, int] = COLOR_BULLET,
+    image_path: str | None = None,
 ) -> Entity:
     """
     Creates one bullet entity at the given position.
@@ -37,6 +38,7 @@ def create_bullet(
         width=BULLET_W,
         height=BULLET_H,
         color=color,
+        image_path=image_path,
     ))
 
     world.add_component(eid, ColliderComponent(

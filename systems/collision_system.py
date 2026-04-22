@@ -19,10 +19,10 @@ def _aabb(pos_a, col_a, pos_b, col_b) -> bool:
     b_bottom = pos_b.y + col_b.height
 
     return (
-        a_left   < b_right  and
-        a_right  > b_left   and
-        a_top    < b_bottom and
-        a_bottom > b_top
+        a_left   <= b_right  and
+        a_right  >= b_left   and
+        a_top    <= b_bottom and
+        a_bottom >= b_top
     )
 
 class CollisionSystem(System):
@@ -48,6 +48,7 @@ class CollisionSystem(System):
         leaders        = []
         players        = []
         powerups       = []
+        guard_alive    = False
 
         for eid in all_collidable:
             tag = world.get_component(eid, TagComponent)
@@ -57,6 +58,8 @@ class CollisionSystem(System):
                 enemy_bullets.append(eid)
             elif tag.label in ("enemy", "leader_guard"):
                 enemies.append(eid)
+                if tag.label == "leader_guard":
+                    guard_alive = True
             elif tag.label == "leader":
                 leaders.append(eid)
             elif tag.label == "player":
@@ -78,20 +81,21 @@ class CollisionSystem(System):
                         "enemy":  e_eid,
                     })
 
-        for b_eid in player_bullets:
-            b_pos = world.get_component(b_eid, PositionComponent)
-            b_col = world.get_component(b_eid, ColliderComponent)
+        if not guard_alive:
+            for b_eid in player_bullets:
+                b_pos = world.get_component(b_eid, PositionComponent)
+                b_col = world.get_component(b_eid, ColliderComponent)
 
-            for l_eid in leaders:
-                l_pos = world.get_component(l_eid, PositionComponent)
-                l_col = world.get_component(l_eid, ColliderComponent)
+                for l_eid in leaders:
+                    l_pos = world.get_component(l_eid, PositionComponent)
+                    l_col = world.get_component(l_eid, ColliderComponent)
 
-                if _aabb(b_pos, b_col, l_pos, l_col):
-                    kwargs["collision_events"].append({
-                        "type":   "bullet_leader",
-                        "bullet": b_eid,
-                        "leader": l_eid,
-                    })
+                    if _aabb(b_pos, b_col, l_pos, l_col):
+                        kwargs["collision_events"].append({
+                            "type":   "bullet_leader",
+                            "bullet": b_eid,
+                            "leader": l_eid,
+                        })
 
         for e_eid in enemies:
             e_pos = world.get_component(e_eid, PositionComponent)
