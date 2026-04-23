@@ -62,3 +62,21 @@ python main.py
     - https://www.freepik.com
 
 
+## Contributions to G4
+
+- Armando Hernandez:
+    - Worked on accessibility options, controls documentation, and final playtesting.
+    - Helped tune level progression, wave difficulty, leader encounters, and guard phases.
+    - Helped prepare the README, postmortem, demo plan, and final submission materials.
+
+- Asad Tirmizi:
+    - Helped split and clean the codebase into a clearer `src/` structure for the final package.
+    - Helped with debugging, packaging checks, and making sure the game runs from `main.py`.
+    - Worked on test gameplay balance and fix bugs found during playtesting.
+
+- Mahran Alkhalil
+    - Worked on audio, sound effects, ambience, volume control, mute, and scene-based audio behavior.
+    - Worked on visuals and presentation, including sprites, backgrounds, HUD polish, menus, and screen readability.
+    - Prepared the README, postmortem, demo plan, and final submission materials.
+- Malec  Tarabein
+
