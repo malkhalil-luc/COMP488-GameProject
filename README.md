@@ -79,4 +79,6 @@ python main.py
     - Worked on visuals and presentation, including sprites, backgrounds, HUD polish, menus, and screen readability.
     - Prepared the README, postmortem, demo plan, and final submission materials.
 - Malec  Tarabein
-
+    - Helped with in-game progression scaling for enemies
+    - Fine-tuned player controls and enemy movement
+    - Helped develop & debug boss and mob behavior changes
